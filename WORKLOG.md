@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Raised the compact chart height, added clearer keyboard focus states, and did another desktop and mobile smoke pass across chart scrubbing, mode toggles, round filtering, and recent-group selection.
 - Removed the confusing `Still Alive Today` summary card and left the dedicated win-outlook panel as the single place for current can-still-win status.
 - Added a `Leader Gap` chart mode so the top-10 graph can be viewed relative to the current leader instead of only as raw points or rank.
 - Rewrote the hero, metadata, and helper copy to sound like product copy instead of implementation notes, and added explicit share metadata for cleaner link previews.

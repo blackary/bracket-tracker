@@ -1718,7 +1718,7 @@ function renderChart(model, selectedIndex) {
   const compact = viewportWidth <= 820;
   const medium = viewportWidth <= 1200;
   const width = compact ? 760 : 980;
-  const height = compact ? 310 : 360;
+  const height = compact ? 360 : 360;
   const calloutLimit = compact ? 0 : medium ? 3 : MAX_CHART_CALLOUTS;
   const calloutGap = medium ? 50 : 54;
   const calloutHeight = 42;
