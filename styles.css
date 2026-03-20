@@ -30,6 +30,7 @@
 
 html {
   font-size: 16px;
+  overflow-x: clip;
 }
 
 body {
@@ -325,60 +326,21 @@ select {
 .field__select {
   appearance: none;
   cursor: pointer;
+  padding-right: 2.85rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(24, 32, 44, 0.6) 50%),
+    linear-gradient(135deg, rgba(24, 32, 44, 0.6) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.1rem) calc(50% - 0.12rem),
+    calc(100% - 0.78rem) calc(50% - 0.12rem);
+  background-repeat: no-repeat;
+  background-size: 0.4rem 0.4rem;
 }
 
-.recent-groups {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.recent-groups--empty {
-  padding: 0.95rem 1rem;
-  border: 1px dashed rgba(24, 32, 44, 0.12);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.48);
-}
-
-.recent-groups__empty {
-  margin: 0;
+.recent-groups__select:disabled {
   color: var(--ink-faint);
-  line-height: 1.5;
-}
-
-.recent-group-button {
-  display: grid;
-  gap: 0.14rem;
-  width: 100%;
-  padding: 0.8rem 0.92rem;
-  border: 1px solid rgba(24, 32, 44, 0.08);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-}
-
-.recent-group-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(32, 78, 123, 0.18);
-  box-shadow: 0 12px 24px rgba(16, 32, 51, 0.08);
-}
-
-.recent-group-button--active {
-  border-color: rgba(186, 58, 27, 0.24);
-  background: rgba(186, 58, 27, 0.08);
-  box-shadow: 0 14px 26px rgba(186, 58, 27, 0.08);
-}
-
-.recent-group-button__name {
-  font-weight: 700;
-}
-
-.recent-group-button__meta {
-  color: var(--ink-faint);
-  font-size: 0.84rem;
-  line-height: 1.45;
+  background-color: rgba(255, 255, 255, 0.62);
+  cursor: default;
 }
 
 .field--inline {
@@ -546,7 +508,6 @@ select {
 
 .button:focus-visible,
 .segmented-control__button:focus-visible,
-.recent-group-button:focus-visible,
 .round-filter__summary:focus-visible,
 .round-filter__action:focus-visible,
 .timeline-marker:focus-visible,
@@ -792,6 +753,10 @@ select {
   display: grid;
   gap: 0.7rem;
   justify-items: end;
+}
+
+.control-stack .button {
+  justify-self: end;
 }
 
 .control-group {
@@ -1799,8 +1764,8 @@ select {
     min-width: 100%;
   }
 
-  .recent-groups {
-    gap: 0.5rem;
+  .recent-groups__select {
+    min-height: 3rem;
   }
 
   .round-filter__menu {
@@ -1822,6 +1787,11 @@ select {
     width: 100%;
     justify-items: stretch;
     gap: 0.55rem;
+  }
+
+  .control-stack .button {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .segmented-control {

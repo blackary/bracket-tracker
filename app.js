@@ -9,6 +9,7 @@ const MAX_LOADED_ENTRIES = 1000;
 const MAX_RECENT_GROUPS = 8;
 const MAX_CHART_LINES = 10;
 const MAX_CHART_CALLOUTS = MAX_CHART_LINES;
+const CHART_PLAYBACK_STEP_MS = 460;
 const METRIC_POINTS = "points";
 const METRIC_ACCURACY = "accuracy";
 const CHART_MODE_RANK = "rank";
@@ -18,6 +19,7 @@ const OUTLOOK_MODE_ESPN = "espn";
 const OUTLOOK_MODE_PROJECTION = "projection";
 const RECENT_GROUPS_STORAGE_KEY = "bracket-tracker/recent-groups/v1";
 const IMPORTED_ODDS_STORAGE_KEY = "bracket-tracker/imported-odds/v1";
+const IMPORTED_ODDS_DATA_PREFIX = "./data/evanmiya-tourney-odds-";
 const LEADER_COLORS = [
   "#ba3a1b",
   "#204e7b",
@@ -67,10 +69,12 @@ const state = {
   chartPointerId: null,
   exportSheetUrl: null,
   importedOdds: loadImportedOdds(),
+  importingOdds: false,
   loading: false,
   metric: METRIC_POINTS,
   outlookMode: OUTLOOK_MODE_ESPN,
   pendingSelectionRender: null,
+  playbackTimer: null,
   picksRoundIds: [],
   season: getDefaultSeason(),
   recentGroups: loadRecentGroups(),
@@ -99,7 +103,6 @@ const dom = {
   heroGroupSpotlight: document.getElementById("hero-group-spotlight"),
   leaderLegend: document.getElementById("leader-legend"),
   metricButtons: Array.from(document.querySelectorAll("[data-metric]")),
-  oddsFileInput: document.getElementById("odds-file-input"),
   oddsStatus: document.getElementById("odds-status"),
   outlookPanel: document.getElementById("outlook-panel"),
   outlookModeButtons: Array.from(document.querySelectorAll("[data-outlook-mode]")),
@@ -126,6 +129,7 @@ const dom = {
   timelineGame: document.getElementById("timeline-game"),
   timelineMarkers: document.getElementById("timeline-markers"),
   timelineNext: document.getElementById("timeline-next"),
+  timelinePlay: document.getElementById("timeline-play"),
   timelinePrev: document.getElementById("timeline-prev"),
   timelineRange: document.getElementById("timeline-range")
 };
@@ -255,6 +259,7 @@ function persistImportedOdds() {
         importedAt: state.importedOdds.importedAt,
         season: state.importedOdds.season,
         source: state.importedOdds.source,
+        updatedAt: state.importedOdds.updatedAt || "",
         teams: state.importedOdds.teams
       })
     );
@@ -358,30 +363,26 @@ function renderRecentGroups() {
       : "";
 
   if (!state.recentGroups.length) {
-    dom.recentGroupsList.className = "recent-groups recent-groups--empty";
-    dom.recentGroupsList.innerHTML = '<p class="recent-groups__empty">No recent groups yet</p>';
+    dom.recentGroupsList.innerHTML = '<option value="">No recent groups yet</option>';
+    dom.recentGroupsList.disabled = true;
+    dom.recentGroupsList.value = "";
     return;
   }
 
-  dom.recentGroupsList.className = "recent-groups";
-  dom.recentGroupsList.innerHTML = state.recentGroups
-    .map(group => {
+  dom.recentGroupsList.disabled = false;
+  dom.recentGroupsList.innerHTML = [
+    '<option value="">Choose a recent group</option>',
+    ...state.recentGroups.map(group => {
       const value = makeRecentGroupKey(group.groupId, group.season);
       const shortId = group.groupId.slice(0, 8);
-      const active = value === selectedKey;
-      return `
-        <button
-          class="recent-group-button${active ? " recent-group-button--active" : ""}"
-          type="button"
-          data-recent-group="${escapeAttribute(value)}"
-          aria-pressed="${active ? "true" : "false"}"
-        >
-          <span class="recent-group-button__name">${escapeHtml(group.name)}</span>
-          <span class="recent-group-button__meta">${escapeHtml(`${group.season} • ${shortId}`)}</span>
-        </button>
-      `;
+
+      return `<option value="${escapeAttribute(value)}">${escapeHtml(`${group.name} • ${group.season} • ${shortId}`)}</option>`;
     })
-    .join("");
+  ].join("");
+
+  dom.recentGroupsList.value = state.recentGroups.some(group => makeRecentGroupKey(group.groupId, group.season) === selectedKey)
+    ? selectedKey
+    : "";
 }
 
 function renderHeroGroupSpotlight(model) {
@@ -457,65 +458,6 @@ function safeParseJson(text) {
   }
 }
 
-function parseCsvRows(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        cell += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (!inQuotes && char === ",") {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if (!inQuotes && (char === "\n" || char === "\r")) {
-      if (char === "\r" && next === "\n") {
-        index += 1;
-      }
-
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-
-    cell += char;
-  }
-
-  if (cell.length || row.length) {
-    row.push(cell);
-    rows.push(row);
-  }
-
-  return rows.filter(columns => columns.some(value => String(value ?? "").trim()));
-}
-
-function normalizeHeaderKey(value) {
-  return String(value ?? "")
-    .replace(/^\ufeff/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[%()]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function normalizeTeamKey(value) {
   return String(value ?? "")
     .toLowerCase()
@@ -545,17 +487,6 @@ function getOutcomeMatchKeys(team) {
   });
 
   return [...keys];
-}
-
-function parsePercentageValue(value) {
-  const normalized = String(value ?? "").replace(/%/g, "").trim();
-  const parsed = Number(normalized);
-
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  return parsed > 1 ? parsed / 100 : parsed;
 }
 
 function hydrateImportedOddsRecord(record) {
@@ -608,68 +539,52 @@ function hydrateImportedOddsRecord(record) {
     importedAt: String(record?.importedAt || new Date().toISOString()),
     season,
     source: String(record?.source || "EvanMiya Tourney Odds"),
+    updatedAt: String(record?.updatedAt || ""),
     teams
   };
 }
 
-function parseImportedOddsCsv(text, season) {
-  const rows = parseCsvRows(text);
+function getImportedOddsDataUrl(season) {
+  return new URL(`${IMPORTED_ODDS_DATA_PREFIX}${season}.json`, window.location.href).toString();
+}
 
-  if (rows.length < 2) {
-    throw new Error("That CSV doesn't include any EvanMiya odds rows.");
+function formatImportedOddsUpdate(value) {
+  if (!value) {
+    return "";
   }
 
-  const headerIndexByKey = new Map(rows[0].map((header, index) => [normalizeHeaderKey(header), index]));
-  const requiredColumns = {
-    team: headerIndexByKey.get("team"),
-    seed: headerIndexByKey.get("seed"),
-    round32: headerIndexByKey.get("round 32"),
-    sweet16: headerIndexByKey.get("sweet 16"),
-    elite8: headerIndexByKey.get("elite eight"),
-    final4: headerIndexByKey.get("final four"),
-    titleGame: headerIndexByKey.get("title game"),
-    champ: headerIndexByKey.get("champ")
-  };
+  const date = new Date(value);
 
-  if (Object.values(requiredColumns).some(value => value === undefined)) {
-    throw new Error("That file doesn't look like an EvanMiya tournament-odds export.");
+  if (Number.isNaN(date.getTime())) {
+    return "";
   }
 
-  const teams = rows
-    .slice(1)
-    .map(columns => {
-      const name = String(columns[requiredColumns.team] || "").trim();
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
 
-      if (!name) {
-        return null;
-      }
-
-      const roundProbabilities = {
-        1: parsePercentageValue(columns[requiredColumns.round32]),
-        2: parsePercentageValue(columns[requiredColumns.sweet16]),
-        3: parsePercentageValue(columns[requiredColumns.elite8]),
-        4: parsePercentageValue(columns[requiredColumns.final4]),
-        5: parsePercentageValue(columns[requiredColumns.titleGame]),
-        6: parsePercentageValue(columns[requiredColumns.champ])
-      };
-
-      return {
-        name,
-        roundProbabilities,
-        seed: String(columns[requiredColumns.seed] ?? "").trim()
-      };
-    })
-    .filter(team => team && Object.values(team.roundProbabilities).some(value => value !== null));
-
-  const hydrated = hydrateImportedOddsRecord({
-    importedAt: new Date().toISOString(),
-    season,
-    source: "EvanMiya Tourney Odds",
-    teams
+async function fetchBuiltInImportedOdds(season) {
+  const response = await fetch(getImportedOddsDataUrl(season), {
+    credentials: "omit",
+    headers: {
+      Accept: "application/json"
+    }
   });
 
+  if (response.status === 404) {
+    throw new Error(`Built-in tournament odds are not available for ${season} yet.`);
+  }
+
+  if (!response.ok) {
+    throw new Error("Couldn't load the built-in tournament odds right now.");
+  }
+
+  const hydrated = hydrateImportedOddsRecord(await response.json());
+
   if (!hydrated || hydrated.teams.length < 16) {
-    throw new Error("That imported odds file doesn't include enough team rows to use.");
+    throw new Error("The built-in tournament odds file is incomplete right now.");
   }
 
   return hydrated;
@@ -1369,8 +1284,8 @@ function getSnapshotStandings(model, index, metric) {
   });
 }
 
-function getChartEntries(model, snapshotIndex) {
-  return getSnapshotStandings(model, snapshotIndex, METRIC_POINTS).slice(
+function getChartEntries(model, metric = state.metric) {
+  return getSnapshotStandings(model, model.completedProps.length, metric).slice(
     0,
     Math.min(model.entries.length, MAX_CHART_LINES)
   );
@@ -1380,7 +1295,9 @@ function buildChartColorMap(model) {
   const appearances = new Map();
 
   for (let snapshotIndex = 0; snapshotIndex <= model.completedProps.length; snapshotIndex += 1) {
-    getChartEntries(model, snapshotIndex).forEach(entry => {
+    getSnapshotStandings(model, snapshotIndex, METRIC_POINTS)
+      .slice(0, Math.min(model.entries.length, MAX_CHART_LINES))
+      .forEach(entry => {
       const previous = appearances.get(entry.id);
 
       if (!previous) {
@@ -1396,8 +1313,19 @@ function buildChartColorMap(model) {
       previous.appearances += 1;
       previous.bestRank = Math.min(previous.bestRank, entry.rank);
       previous.firstSeen = Math.min(previous.firstSeen, snapshotIndex);
-    });
+      });
   }
+
+  getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS).forEach(entry => {
+    if (!appearances.has(entry.id)) {
+      appearances.set(entry.id, {
+        appearances: 0,
+        bestRank: entry.rank,
+        entry,
+        firstSeen: Number.POSITIVE_INFINITY
+      });
+    }
+  });
 
   const ordered = [...appearances.values()].sort((left, right) => {
     if (left.firstSeen !== right.firstSeen) {
@@ -1456,6 +1384,10 @@ function formatCompactNumber(value) {
 function formatGameCount(value) {
   const count = Number(value) || 0;
   return `${count} game${count === 1 ? "" : "s"}`;
+}
+
+function getChartValueLabel() {
+  return state.metric === METRIC_ACCURACY ? "Accuracy %" : "Point Total";
 }
 
 function formatTeamCount(value) {
@@ -1601,11 +1533,20 @@ function formatRankDisplay(rank) {
   return rank ? `#${rank}` : "-";
 }
 
-function formatGapDisplay(value) {
-  return `${value} back`;
+function formatGapDisplay(value, metric, rank) {
+  if (value <= 0.0001) {
+    return rank === 1 ? "tied for 1st" : "level with 1st";
+  }
+
+  if (metric === METRIC_ACCURACY) {
+    return `${value.toFixed(1)} pp back`;
+  }
+
+  const roundedValue = Number.isInteger(value) ? value : Number(value.toFixed(1));
+  return `${roundedValue} pts back`;
 }
 
-function getChartModeValue(snapshotEntry, chartMode, leaderPoints = 0) {
+function getChartModeValue(snapshotEntry, chartMode, metric, leaderValue = 0) {
   if (!snapshotEntry) {
     return null;
   }
@@ -1615,13 +1556,13 @@ function getChartModeValue(snapshotEntry, chartMode, leaderPoints = 0) {
   }
 
   if (chartMode === CHART_MODE_GAP) {
-    return Math.max(leaderPoints - snapshotEntry.snapshot.points, 0);
+    return Math.max(leaderValue - metricValue(snapshotEntry, metric), 0);
   }
 
-  return snapshotEntry.snapshot.points;
+  return metricValue(snapshotEntry, metric);
 }
 
-function formatChartValueDisplay(snapshotEntry, chartMode, leaderPoints = 0) {
+function formatChartValueDisplay(snapshotEntry, chartMode, metric, leaderValue = 0) {
   if (!snapshotEntry) {
     return "-";
   }
@@ -1631,10 +1572,10 @@ function formatChartValueDisplay(snapshotEntry, chartMode, leaderPoints = 0) {
   }
 
   if (chartMode === CHART_MODE_GAP) {
-    return formatGapDisplay(getChartModeValue(snapshotEntry, chartMode, leaderPoints));
+    return formatGapDisplay(getChartModeValue(snapshotEntry, chartMode, metric, leaderValue), metric, snapshotEntry.rank);
   }
 
-  return `${snapshotEntry.snapshot.points} pts`;
+  return formatMetricDisplay(metricValue(snapshotEntry, metric), metric);
 }
 
 function getLeadMarginSummary(standings, metric) {
@@ -1834,10 +1775,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function buildChartDisplayPoints(leaderEntries, pointSnapshots, chartMode, xFor, yFor, minY, maxY, tieStep = 3) {
-  const displayPointsByEntryId = new Map(leaderEntries.map(({ entry }) => [entry.id, Array(pointSnapshots.length).fill(null)]));
+function buildChartDisplayPoints(leaderEntries, chartSnapshots, chartMode, metric, xFor, yFor, minY, maxY, tieStep = 3) {
+  const displayPointsByEntryId = new Map(leaderEntries.map(({ entry }) => [entry.id, Array(chartSnapshots.length).fill(null)]));
 
-  pointSnapshots.forEach((snapshot, snapshotIndex) => {
+  chartSnapshots.forEach((snapshot, snapshotIndex) => {
     const visiblePoints = leaderEntries
       .map(({ entry }, orderIndex) => {
         const snapshotEntry = snapshot.entriesById.get(entry.id);
@@ -1846,9 +1787,9 @@ function buildChartDisplayPoints(leaderEntries, pointSnapshots, chartMode, xFor,
           return null;
         }
 
-        const chartValue = getChartModeValue(snapshotEntry, chartMode, snapshot.leaderPoints);
+        const chartValue = getChartModeValue(snapshotEntry, chartMode, metric, snapshot.leaderValue);
 
-        if (chartValue === null || (chartMode === CHART_MODE_RANK && chartValue > MAX_CHART_LINES)) {
+        if (chartValue === null) {
           return null;
         }
 
@@ -2335,7 +2276,8 @@ function renderTimeline(model, standings, snapshotIndex) {
 
 function renderChart(model, selectedIndex) {
   const totalSnapshots = model.completedProps.length + 1;
-  const chartEntries = getChartEntries(model, selectedIndex);
+  const chartMetric = state.metric;
+  const chartEntries = getChartEntries(model, chartMetric);
 
   if (!chartEntries.length || totalSnapshots <= 1) {
     finishChartScrub();
@@ -2346,18 +2288,18 @@ function renderChart(model, selectedIndex) {
   }
 
   const chartEntryIds = new Set(chartEntries.map(entry => entry.id));
-  const pointSnapshots = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
-    const standings = getSnapshotStandings(model, snapshotIndex, METRIC_POINTS);
+  const chartSnapshots = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
+    const standings = getSnapshotStandings(model, snapshotIndex, chartMetric);
 
     return {
       entriesById: new Map(standings.filter(entry => chartEntryIds.has(entry.id)).map(entry => [entry.id, entry])),
-      leaderPoints: standings[0]?.snapshot.points ?? 0
+      leaderValue: standings.length ? metricValue(standings[0], chartMetric) : 0
     };
   });
-  const currentPointsSnapshot = pointSnapshots[model.completedProps.length];
-  const selectedPointsSnapshot = pointSnapshots[selectedIndex];
-  const currentPointsStandings = currentPointsSnapshot.entriesById;
-  const selectedPointsStandings = selectedPointsSnapshot.entriesById;
+  const currentChartSnapshot = chartSnapshots[model.completedProps.length];
+  const selectedChartSnapshot = chartSnapshots[selectedIndex];
+  const currentChartStandings = currentChartSnapshot.entriesById;
+  const selectedChartStandings = selectedChartSnapshot.entriesById;
   const leaderEntries = chartEntries
     .map((entry, index) => ({
       color: model.colorByEntryId.get(entry.id) || LEADER_COLORS[index % LEADER_COLORS.length],
@@ -2384,32 +2326,50 @@ function renderChart(model, selectedIndex) {
   const plotRight = width - padding.right;
   const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
-  const maxPoints = Math.max(...leaderEntries.flatMap(({ entry }) => entry.series.map(snapshot => snapshot.points)), 1);
+  const maxRank = Math.max(
+    MAX_CHART_LINES,
+    ...chartSnapshots.flatMap(snapshot =>
+      leaderEntries.map(({ entry }) => snapshot.entriesById.get(entry.id)?.rank || MAX_CHART_LINES)
+    )
+  );
+  const maxMetricValue =
+    chartMetric === METRIC_ACCURACY
+      ? 100
+      : Math.max(
+          ...chartSnapshots.flatMap(snapshot =>
+            leaderEntries.map(({ entry }) => {
+              const snapshotEntry = snapshot.entriesById.get(entry.id);
+              return snapshotEntry ? getChartModeValue(snapshotEntry, CHART_MODE_POINTS, chartMetric, snapshot.leaderValue) : 0;
+            })
+          ),
+          1
+        );
   const maxGap = Math.max(
-    ...pointSnapshots.flatMap(snapshot =>
+    chartMetric === METRIC_ACCURACY ? 5 : 1,
+    ...chartSnapshots.flatMap(snapshot =>
       leaderEntries.map(({ entry }) => {
         const snapshotEntry = snapshot.entriesById.get(entry.id);
-        return snapshotEntry ? getChartModeValue(snapshotEntry, CHART_MODE_GAP, snapshot.leaderPoints) : 0;
+        return snapshotEntry ? getChartModeValue(snapshotEntry, CHART_MODE_GAP, chartMetric, snapshot.leaderValue) : 0;
       })
-    ),
-    1
+    )
   );
   const xStep = totalSnapshots > 1 ? chartWidth / (totalSnapshots - 1) : chartWidth;
   const xFor = index => padding.left + index * xStep;
   const gridValues =
     state.chartMode === CHART_MODE_RANK
-      ? [1, 3, 5, 7, 10]
-      : buildPointTicks(state.chartMode === CHART_MODE_GAP ? maxGap : maxPoints, state.chartMode === CHART_MODE_GAP ? 1 : 10);
+      ? buildRankTicks(maxRank)
+      : buildValueTicks(state.chartMode === CHART_MODE_GAP ? maxGap : maxMetricValue, chartMetric, state.chartMode);
   const yFor =
     state.chartMode === CHART_MODE_RANK
-      ? value => padding.top + ((value - 1) / Math.max(MAX_CHART_LINES - 1, 1)) * chartHeight
+      ? value => padding.top + ((value - 1) / Math.max(maxRank - 1, 1)) * chartHeight
       : state.chartMode === CHART_MODE_GAP
         ? value => padding.top + (value / Math.max(maxGap, 1)) * chartHeight
-        : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
+        : value => padding.top + chartHeight - (value / Math.max(maxMetricValue, 1)) * chartHeight;
   const displayPointsByEntryId = buildChartDisplayPoints(
     leaderEntries,
-    pointSnapshots,
+    chartSnapshots,
     state.chartMode,
+    chartMetric,
     xFor,
     yFor,
     padding.top + 4,
@@ -2432,21 +2392,21 @@ function renderChart(model, selectedIndex) {
   }).join("");
   const calloutCandidates = leaderEntries
     .map(({ entry, color }) => {
-      const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+      const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
       const selectedDisplayPoint = displayPointsByEntryId.get(entry.id)?.[selectedIndex];
 
       if (!selectedSnapshotEntry || !selectedDisplayPoint) {
         return null;
       }
 
-      const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+      const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, chartMetric, selectedChartSnapshot.leaderValue);
 
-      if (selectedValue === null || (state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES)) {
+      if (selectedValue === null) {
         return null;
       }
 
       const shortLabel = truncateLabel(entry.name, medium ? 16 : 18);
-      const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+      const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, chartMetric, selectedChartSnapshot.leaderValue);
       const estimatedTextWidth = shortLabel.length * 6.7 + valueText.length * 6.1;
 
       return {
@@ -2461,7 +2421,7 @@ function renderChart(model, selectedIndex) {
             ? selectedSnapshotEntry.rank
             : state.chartMode === CHART_MODE_GAP
               ? selectedValue
-              : -selectedSnapshotEntry.snapshot.points,
+              : -metricValue(selectedSnapshotEntry, chartMetric),
         targetY: selectedDisplayPoint.y,
         valueText
       };
@@ -2522,7 +2482,7 @@ function renderChart(model, selectedIndex) {
             return `
               <line class="chart-grid-line" x1="${padding.left}" x2="${plotRight}" y1="${y}" y2="${y}" />
               <text class="chart-axis-label" x="${padding.left - 10}" y="${y + 4}" text-anchor="end">${escapeHtml(
-                state.chartMode === CHART_MODE_RANK ? formatRankDisplay(value) : String(value)
+                formatChartAxisLabel(value, state.chartMode, chartMetric)
               )}</text>
             `;
           })
@@ -2533,16 +2493,13 @@ function renderChart(model, selectedIndex) {
           .map(({ entry, color }) => {
             const displayPoints = displayPointsByEntryId.get(entry.id) || [];
             const path = buildChartPath(displayPoints);
-            const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
-            const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+            const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
             const selectedDisplayPoint = displayPoints[selectedIndex];
 
             return `
               ${path ? `<path class="chart-path" d="${path}" stroke="${color}" />` : ""}
               ${
-                selectedValue !== null &&
-                !(state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES) &&
-                selectedDisplayPoint
+                selectedSnapshotEntry && selectedDisplayPoint
                   ? `<circle class="chart-point" cx="${selectedDisplayPoint.x}" cy="${selectedDisplayPoint.y}" r="5" fill="${color}" />`
                   : ""
               }
@@ -2564,10 +2521,10 @@ function renderChart(model, selectedIndex) {
 
   dom.leaderLegend.innerHTML = leaderEntries
     .map(({ entry, color }) => {
-      const currentSnapshotEntry = currentPointsStandings.get(entry.id);
-      const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
-      const currentValueText = formatChartValueDisplay(currentSnapshotEntry, state.chartMode, currentPointsSnapshot.leaderPoints);
-      const selectedValueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+      const currentSnapshotEntry = currentChartStandings.get(entry.id);
+      const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
+      const currentValueText = formatChartValueDisplay(currentSnapshotEntry, state.chartMode, chartMetric, currentChartSnapshot.leaderValue);
+      const selectedValueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, chartMetric, selectedChartSnapshot.leaderValue);
       const meta =
         selectedIndex === model.completedProps.length
           ? state.chartMode === CHART_MODE_RANK
@@ -2590,16 +2547,59 @@ function renderChart(model, selectedIndex) {
     .join("");
 }
 
-function buildPointTicks(maxValue, minStep = 10) {
-  const tickCount = 5;
-  const step = Math.max(minStep, Math.ceil(maxValue / tickCount / minStep) * minStep);
-  const ticks = [];
+function buildRankTicks(maxRank) {
+  const safeMax = Math.max(MAX_CHART_LINES, Math.ceil(maxRank));
 
-  for (let value = 0; value <= maxValue + step; value += step) {
+  if (safeMax <= MAX_CHART_LINES) {
+    return [1, 3, 5, 7, 10].filter(value => value <= safeMax);
+  }
+
+  const step = Math.max(1, Math.ceil((safeMax - 1) / 4));
+  const ticks = [1];
+
+  for (let value = 1 + step; value < safeMax; value += step) {
     ticks.push(value);
   }
 
-  return ticks.slice(0, tickCount + 1);
+  ticks.push(safeMax);
+  return [...new Set(ticks)];
+}
+
+function buildValueTicks(maxValue, metric, chartMode) {
+  const tickCount = 5;
+  const minStep =
+    metric === METRIC_ACCURACY
+      ? chartMode === CHART_MODE_GAP
+        ? 2
+        : 20
+      : chartMode === CHART_MODE_GAP
+        ? 1
+        : 10;
+  const safeMax = Math.max(maxValue, minStep);
+  const step = Math.max(minStep, Math.ceil(safeMax / tickCount / minStep) * minStep);
+  const ticks = [];
+
+  for (let value = 0; value <= safeMax + 0.0001 && ticks.length < tickCount + 1; value += step) {
+    ticks.push(Number(value.toFixed(1)));
+  }
+
+  if (ticks[ticks.length - 1] < safeMax) {
+    ticks.push(Number(safeMax.toFixed(1)));
+  }
+
+  return [...new Set(ticks)];
+}
+
+function formatChartAxisLabel(value, chartMode, metric) {
+  if (chartMode === CHART_MODE_RANK) {
+    return formatRankDisplay(value);
+  }
+
+  if (metric === METRIC_ACCURACY) {
+    return chartMode === CHART_MODE_GAP ? `${Number(value.toFixed(1))} pp` : `${Number(value.toFixed(0))}%`;
+  }
+
+  return String(Number(value.toFixed(0)));
 }
 
 function renderStandings(model, standings) {
@@ -2751,7 +2751,7 @@ function renderProjectionOutlook(model) {
   const projection = model.oddsProjection;
 
   if (!projection?.standings?.length) {
-    const reason = projection?.reason || "Import an EvanMiya tournament-odds CSV to add a projected finish view.";
+    const reason = projection?.reason || "Load EvanMiya tournament odds to add a projected finish view.";
 
     return `
       <p class="outlook-note">${escapeHtml(reason)}</p>
@@ -2763,7 +2763,7 @@ function renderProjectionOutlook(model) {
             <span class="stack-list__value">Waiting</span>
           </div>
           <p class="stack-list__meta">
-            Import the public EvanMiya tournament-odds CSV to estimate where each loaded bracket is headed.
+            Load the latest EvanMiya tournament odds to estimate where each loaded bracket is headed.
           </p>
         </div>
       </div>
@@ -2834,20 +2834,26 @@ function syncImportedOddsUi() {
   }
 
   const importedOdds = state.importedOdds;
+  const importedUpdate = formatImportedOddsUpdate(importedOdds?.updatedAt);
 
   dom.clearOddsButton.hidden = !importedOdds;
   dom.clearOddsButton.disabled = !importedOdds;
-  dom.importOddsButton.textContent = importedOdds ? "Replace Odds" : "Import Odds";
+  dom.importOddsButton.disabled = state.importingOdds;
+  dom.importOddsButton.textContent = state.importingOdds
+    ? "Loading Odds…"
+    : importedOdds
+      ? "Refresh Odds"
+      : "Load Odds";
 
   if (!importedOdds) {
-    dom.oddsStatus.textContent = "Import an EvanMiya tournament-odds CSV to add a projected finish view.";
+    dom.oddsStatus.textContent = "Load EvanMiya tournament odds to add a projected finish view.";
     return;
   }
 
   if (state.model?.oddsProjection?.standings?.length) {
     dom.oddsStatus.innerHTML = `<strong>${escapeHtml(importedOdds.source)}</strong> loaded for ${escapeHtml(
       importedOdds.season
-    )} • ${escapeHtml(formatTeamCount(importedOdds.teams.length))} imported`;
+    )}${importedUpdate ? ` • updated ${escapeHtml(importedUpdate)}` : ""} • ${escapeHtml(formatTeamCount(importedOdds.teams.length))} ready`;
     return;
   }
 
@@ -2856,7 +2862,9 @@ function syncImportedOddsUi() {
     return;
   }
 
-  dom.oddsStatus.innerHTML = `<strong>${escapeHtml(importedOdds.source)}</strong> ready for ${escapeHtml(importedOdds.season)}.`;
+  dom.oddsStatus.innerHTML = `<strong>${escapeHtml(importedOdds.source)}</strong> ready for ${escapeHtml(
+    importedOdds.season
+  )}${importedUpdate ? ` • updated ${escapeHtml(importedUpdate)}` : ""}.`;
 }
 
 function renderPicksTable(model) {
@@ -2952,7 +2960,7 @@ function renderDetails(model) {
     .join(" • ");
   const importedOddsNote = model.oddsProjection?.standings?.length
     ? `Imported ${model.oddsProjection.source} odds are weighting each remaining pick by expected points.`
-    : "You can optionally import EvanMiya tournament odds to add a projected finish view.";
+    : "You can optionally load EvanMiya tournament odds to add a projected finish view.";
 
   dom.detailsPanel.innerHTML = `
     <div class="details-grid">
@@ -2999,6 +3007,7 @@ function renderDetails(model) {
 
 function renderEmptyState() {
   cancelPendingSelectionRender();
+  stopPlayback();
   finishChartScrub();
   renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
@@ -3045,6 +3054,7 @@ function renderEmptyState() {
   dom.downloadCsvButton.disabled = true;
   syncImportedOddsUi();
   syncOutlookModeButtons();
+  syncPlaybackButton();
 }
 
 function renderSelectionState() {
@@ -3061,6 +3071,7 @@ function renderSelectionState() {
   renderTimeline(state.model, standings, safeIndex);
   renderChart(state.model, safeIndex);
   renderStandings(state.model, standings);
+  syncPlaybackButton();
 }
 
 function cancelPendingSelectionRender() {
@@ -3117,6 +3128,10 @@ function syncChartModeButtons() {
     const active = button.dataset.chartMode === state.chartMode;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
+
+    if (button.dataset.chartMode === CHART_MODE_POINTS) {
+      button.textContent = getChartValueLabel();
+    }
   });
 }
 
@@ -3124,6 +3139,7 @@ async function loadGroup(rawInput, rawSeason) {
   const lookup = parseGroupLookup(rawInput, rawSeason);
 
   closeMobileExportSheet();
+  stopPlayback();
   finishChartScrub();
   state.loading = true;
   state.rawInput = lookup.groupId;
@@ -3420,6 +3436,53 @@ async function downloadCurrentPicksCsv() {
   }
 }
 
+function syncPlaybackButton() {
+  if (!dom.timelinePlay) {
+    return;
+  }
+
+  const disabled = !state.model || !state.model.completedProps.length;
+  const playing = state.playbackTimer !== null;
+  dom.timelinePlay.disabled = disabled;
+  dom.timelinePlay.textContent = playing ? "Pause Replay" : "Play from Start";
+  dom.timelinePlay.setAttribute("aria-pressed", String(playing));
+}
+
+function stopPlayback() {
+  if (state.playbackTimer !== null) {
+    window.clearInterval(state.playbackTimer);
+    state.playbackTimer = null;
+  }
+
+  syncPlaybackButton();
+}
+
+function startPlayback() {
+  if (!state.model || !state.model.completedProps.length) {
+    syncPlaybackButton();
+    return;
+  }
+
+  stopPlayback();
+  setSelectedIndex(0, { fromPlayback: true });
+
+  state.playbackTimer = window.setInterval(() => {
+    if (!state.model) {
+      stopPlayback();
+      return;
+    }
+
+    if (state.selectedIndex >= state.model.completedProps.length) {
+      stopPlayback();
+      return;
+    }
+
+    setSelectedIndex(state.selectedIndex + 1, { fromPlayback: true });
+  }, CHART_PLAYBACK_STEP_MS);
+
+  syncPlaybackButton();
+}
+
 function handleSubmit(event) {
   event.preventDefault();
   loadGroup(dom.groupInput.value, dom.seasonInput.value);
@@ -3431,14 +3494,8 @@ function handleSampleLoad() {
   loadGroup(SAMPLE_GROUP.groupId, SAMPLE_GROUP.season);
 }
 
-function handleRecentGroupClick(event) {
-  const button = event.target.closest("[data-recent-group]");
-
-  if (!button) {
-    return;
-  }
-
-  const value = button.dataset.recentGroup || "";
+function handleRecentGroupChange(event) {
+  const value = String(event.target.value || "");
 
   if (!value) {
     return;
@@ -3456,6 +3513,7 @@ function handleRecentGroupClick(event) {
 }
 
 function handleMetricToggle(event) {
+  stopPlayback();
   const button = event.currentTarget;
 
   if (!button.dataset.metric) {
@@ -3467,6 +3525,7 @@ function handleMetricToggle(event) {
 }
 
 function handleChartModeToggle(event) {
+  stopPlayback();
   const button = event.currentTarget;
 
   if (!button.dataset.chartMode) {
@@ -3493,16 +3552,17 @@ function getImportedOddsSeason() {
   return Number(state.model?.challenge?.season || dom.seasonInput.value || state.season || getDefaultSeason());
 }
 
-async function handleOddsFileChange(event) {
-  const file = event.target.files?.[0];
-
-  if (!file) {
+async function handleImportOddsClick() {
+  if (state.importingOdds) {
     return;
   }
 
+  const season = getImportedOddsSeason();
+  state.importingOdds = true;
+  syncImportedOddsUi();
+
   try {
-    const csvText = await file.text();
-    state.importedOdds = parseImportedOddsCsv(csvText, getImportedOddsSeason());
+    state.importedOdds = await fetchBuiltInImportedOdds(season);
     persistImportedOdds();
 
     if (state.model) {
@@ -3510,20 +3570,13 @@ async function handleOddsFileChange(event) {
     }
 
     state.outlookMode = OUTLOOK_MODE_PROJECTION;
-    setStatus(
-      `Imported ${state.importedOdds.teams.length} EvanMiya team rows for the ${state.importedOdds.season} tournament.`,
-      "success"
-    );
+    setStatus(`Loaded EvanMiya odds for the ${state.importedOdds.season} tournament.`, "success");
   } catch (error) {
     setStatus(error.message, "error");
   } finally {
-    event.target.value = "";
+    state.importingOdds = false;
     render();
   }
-}
-
-function handleImportOddsClick() {
-  dom.oddsFileInput?.click();
 }
 
 function handleClearOdds() {
@@ -3572,6 +3625,10 @@ function setSelectedIndex(nextIndex, options = {}) {
   const max = state.model.completedProps.length;
   const safeIndex = Math.max(0, Math.min(max, Number(nextIndex) || 0));
 
+  if (!options.fromPlayback) {
+    stopPlayback();
+  }
+
   if (safeIndex === state.selectedIndex) {
     return;
   }
@@ -3607,6 +3664,15 @@ function adjustTimeline(delta) {
   }
 
   setSelectedIndex(state.selectedIndex + delta);
+}
+
+function handlePlaybackToggle() {
+  if (state.playbackTimer !== null) {
+    stopPlayback();
+    return;
+  }
+
+  startPlayback();
 }
 
 function finishChartScrub(pointerId = state.chartPointerId) {
@@ -3679,13 +3745,12 @@ function init() {
 
   dom.form.addEventListener("submit", handleSubmit);
   dom.sampleButton.addEventListener("click", handleSampleLoad);
-  dom.recentGroupsList?.addEventListener("click", handleRecentGroupClick);
+  dom.recentGroupsList?.addEventListener("change", handleRecentGroupChange);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
   dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
   dom.outlookModeButtons.forEach(button => button.addEventListener("click", handleOutlookModeToggle));
   dom.importOddsButton?.addEventListener("click", handleImportOddsClick);
   dom.clearOddsButton?.addEventListener("click", handleClearOdds);
-  dom.oddsFileInput?.addEventListener("change", handleOddsFileChange);
   dom.picksRoundFilter?.addEventListener("change", handlePicksRoundChange);
   dom.picksRoundFilter?.addEventListener("click", handlePicksRoundFilterClick);
   dom.downloadCsvButton.addEventListener("click", downloadCurrentPicksCsv);
@@ -3693,6 +3758,7 @@ function init() {
   dom.timelineMarkers.addEventListener("click", handleTimelineMarkerClick);
   dom.timelinePrev.addEventListener("click", () => adjustTimeline(-1));
   dom.timelineNext.addEventListener("click", () => adjustTimeline(1));
+  dom.timelinePlay?.addEventListener("click", handlePlaybackToggle);
   dom.chartPanel.addEventListener("pointerdown", handleChartPointerDown);
   dom.chartPanel.addEventListener("pointermove", handleChartPointerMove);
   dom.chartPanel.addEventListener("pointerup", handleChartPointerUp);
@@ -3711,6 +3777,7 @@ function init() {
   syncChartModeButtons();
   syncImportedOddsUi();
   syncOutlookModeButtons();
+  syncPlaybackButton();
 
   if (lookup.group) {
     loadGroup(lookup.group, lookup.season);

@@ -1,0 +1,46 @@
+name: Refresh EvanMiya Odds
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * 3-4 *"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Refresh odds data
+        run: npm run fetch:odds
+
+      - name: Commit updated odds
+        run: |
+          if git diff --quiet -- data; then
+            echo "No odds changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "Refresh EvanMiya odds data"
+          git push

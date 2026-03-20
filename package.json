@@ -1,0 +1,16 @@
+{
+  "name": "bracket-tracker",
+  "version": "1.0.0",
+  "description": "Static ESPN Tournament Challenge group tracker.",
+  "main": "app.js",
+  "scripts": {
+    "fetch:odds": "node scripts/fetch-evanmiya-odds.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

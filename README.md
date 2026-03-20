@@ -9,14 +9,15 @@ It loads a public group by id, reconstructs the group standings before every com
 
 It also shows:
 
-- a top-10 movement graph for the selected moment, with chart toggles for rank, point totals, or gap to the leader
+- a stable top-10 movement graph for the current race, with chart toggles for rank, raw value, or gap to the leader
 - direct scrubbing across the chart itself, plus an in-chart game scrubber with a marker for every completed game
+- a `Play from Start` replay button for a racing-lines pass from the opening board to now
 - expanded snapshot stats including lead margin, cutline, lead changes, and biggest mover
 - a timeline scrubber for completed games
-- an optional projected-finish view powered by imported EvanMiya tournament-odds CSV data
+- an optional projected-finish view powered by built-in EvanMiya tournament-odds data
 - a bracket picks matrix with a multi-round filter that includes future rounds
 - CSV export for all loaded picks, with separate pick and result columns per game
-- recent groups remembered in browser storage and surfaced as quick-load buttons
+- recent groups remembered in browser storage and surfaced in a bounded dropdown
 - current still-alive paths using ESPN possible max
 - ESPN win probabilities later in the tournament when the forecast feed becomes available
 
@@ -70,7 +71,7 @@ https://blackary.github.io/bracket-tracker/?groupId=6e682872-7e5f-3aa2-84bf-003c
 - ESPN's API currently returns CORS headers that allow a GitHub Pages origin.
 - The built-in example button loads ESPN's featured `SportsCenter` public group for the 2026 tournament.
 - Historical snapshots are reconstructed from completed propositions and public group picks.
-- EvanMiya tournament odds are imported by CSV rather than fetched live, so the app stays compatible with a static GitHub Pages deploy.
+- EvanMiya tournament odds are shipped as same-origin JSON and refreshed by GitHub Actions, so the app can load them with one click while staying compatible with GitHub Pages.
 - The imported projection ranks entries by expected remaining ESPN points from the EvanMiya round-advance odds. It is a projection overlay, not a full joint bracket simulation.
 - Large groups ask ESPN for up to `1000` entries, but ESPN’s public group feed may return fewer. As of March 20, 2026, the `SportsCenter` example group returned `100` public entries.
 - CSV export uses native share when possible on mobile and otherwise falls back to an in-app export sheet with save, open, and copy actions.

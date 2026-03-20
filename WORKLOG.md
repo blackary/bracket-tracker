@@ -2,6 +2,11 @@
 
 ## 2026-03-20
 
+- Reworked recent groups back into a bounded dropdown, kept the prominent group spotlight, and verified the dropdown can reopen previously viewed groups on mobile and desktop.
+- Stabilized the chart cohort to the current top 10 for the selected metric so lines no longer pop in and out while scrubbing, and expanded the rank view so those lines stay visible even when they fell outside the top 10 earlier.
+- Added a `Play from Start` replay control for a racing-lines playback from the opening board to the current snapshot.
+- Fixed the `Leader Gap` wording so tied leaders read as `tied for 1st`, and made the accuracy gap view use percentage points instead of ESPN points.
+- Replaced the manual EvanMiya CSV upload flow with built-in same-origin odds data, added a Playwright-based odds refresh script, and added a GitHub Actions workflow plus deploy support for the generated `data/` files.
 - Tightened the site copy so the hero, status banner, empty states, picks area, and export language all read in the same editorial voice as the rest of the app.
 - Reworked recent groups into visible quick-load buttons, added a session-storage fallback when persistent storage is restricted, and added a prominent hero spotlight for the currently loaded group name.
 - Added an optional EvanMiya projection mode with CSV import, expected-score ranking for loaded brackets, local persistence for imported odds, and desktop/mobile QA against a live SportsCenter group.

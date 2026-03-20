@@ -1,0 +1,824 @@
+{
+  "importedAt": "2026-03-20T18:42:49.981Z",
+  "season": 2026,
+  "source": "EvanMiya Tourney Odds",
+  "teams": [
+    {
+      "name": "Michigan",
+      "seed": "1",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.873,
+        "3": 0.801,
+        "4": 0.632,
+        "5": 0.411,
+        "6": 0.259
+      }
+    },
+    {
+      "name": "Duke",
+      "seed": "1",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.893,
+        "3": 0.713,
+        "4": 0.54,
+        "5": 0.338,
+        "6": 0.184
+      }
+    },
+    {
+      "name": "Arizona",
+      "seed": "1",
+      "roundProbabilities": {
+        "1": 0.992,
+        "2": 0.892,
+        "3": 0.738,
+        "4": 0.532,
+        "5": 0.302,
+        "6": 0.181
+      }
+    },
+    {
+      "name": "Florida",
+      "seed": "1",
+      "roundProbabilities": {
+        "1": 0.999,
+        "2": 0.872,
+        "3": 0.664,
+        "4": 0.397,
+        "5": 0.23,
+        "6": 0.111
+      }
+    },
+    {
+      "name": "Houston",
+      "seed": "2",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.88,
+        "3": 0.587,
+        "4": 0.327,
+        "5": 0.173,
+        "6": 0.08
+      }
+    },
+    {
+      "name": "Purdue",
+      "seed": "2",
+      "roundProbabilities": {
+        "1": 0.998,
+        "2": 0.853,
+        "3": 0.59,
+        "4": 0.253,
+        "5": 0.108,
+        "6": 0.047
+      }
+    },
+    {
+      "name": "Iowa State",
+      "seed": "2",
+      "roundProbabilities": {
+        "1": 0.988,
+        "2": 0.801,
+        "3": 0.54,
+        "4": 0.195,
+        "5": 0.079,
+        "6": 0.031
+      }
+    },
+    {
+      "name": "Illinois",
+      "seed": "3",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.832,
+        "3": 0.355,
+        "4": 0.163,
+        "5": 0.069,
+        "6": 0.026
+      }
+    },
+    {
+      "name": "Michigan State",
+      "seed": "3",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.684,
+        "3": 0.393,
+        "4": 0.146,
+        "5": 0.056,
+        "6": 0.019
+      }
+    },
+    {
+      "name": "Connecticut",
+      "seed": "2",
+      "roundProbabilities": {
+        "1": 0.965,
+        "2": 0.72,
+        "3": 0.403,
+        "4": 0.141,
+        "5": 0.05,
+        "6": 0.018
+      }
+    },
+    {
+      "name": "St. John's",
+      "seed": "5",
+      "roundProbabilities": {
+        "1": 0.859,
+        "2": 0.562,
+        "3": 0.169,
+        "4": 0.09,
+        "5": 0.033,
+        "6": 0.9
+      }
+    },
+    {
+      "name": "Gonzaga",
+      "seed": "3",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.728,
+        "3": 0.298,
+        "4": 0.095,
+        "5": 0.027,
+        "6": 0.8
+      }
+    },
+    {
+      "name": "Virginia",
+      "seed": "3",
+      "roundProbabilities": {
+        "1": 0.955,
+        "2": 0.542,
+        "3": 0.226,
+        "4": 0.067,
+        "5": 0.022,
+        "6": 0.7
+      }
+    },
+    {
+      "name": "Arkansas",
+      "seed": "4",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.871,
+        "3": 0.218,
+        "4": 0.09,
+        "5": 0.025,
+        "6": 0.6
+      }
+    },
+    {
+      "name": "Vanderbilt",
+      "seed": "5",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.539,
+        "3": 0.164,
+        "4": 0.052,
+        "5": 0.017,
+        "6": 0.5
+      }
+    },
+    {
+      "name": "Nebraska",
+      "seed": "4",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.461,
+        "3": 0.13,
+        "4": 0.042,
+        "5": 0.013,
+        "6": 0.3
+      }
+    },
+    {
+      "name": "Tennessee",
+      "seed": "6",
+      "roundProbabilities": {
+        "1": 0.845,
+        "2": 0.423,
+        "3": 0.16,
+        "4": 0.039,
+        "5": 0.011,
+        "6": 0.2
+      }
+    },
+    {
+      "name": "Kansas",
+      "seed": "4",
+      "roundProbabilities": {
+        "1": 0.928,
+        "2": 0.399,
+        "3": 0.083,
+        "4": 0.036,
+        "5": 0.9,
+        "6": 0.2
+      }
+    },
+    {
+      "name": "Saint Louis",
+      "seed": "9",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.128,
+        "3": 0.075,
+        "4": 0.023,
+        "5": 0.4,
+        "6": 0.1
+      }
+    },
+    {
+      "name": "Louisville",
+      "seed": "6",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.316,
+        "3": 0.127,
+        "4": 0.024,
+        "5": 0.5,
+        "6": 0.1
+      }
+    },
+    {
+      "name": "Alabama",
+      "seed": "4",
+      "roundProbabilities": {
+        "1": 0.821,
+        "2": 0.57,
+        "3": 0.08,
+        "4": 0.026,
+        "5": 0.6,
+        "6": 0.1
+      }
+    },
+    {
+      "name": "UCLA",
+      "seed": "7",
+      "roundProbabilities": {
+        "1": 0.734,
+        "2": 0.233,
+        "3": 0.071,
+        "4": 0.013,
+        "5": 0.2,
+        "6": 0.1
+      }
+    },
+    {
+      "name": "TCU",
+      "seed": "9",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.108,
+        "3": 0.033,
+        "4": 0.9,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Texas Tech",
+      "seed": "5",
+      "roundProbabilities": {
+        "1": 0.681,
+        "2": 0.283,
+        "3": 0.037,
+        "4": 0.8,
+        "5": 0.2,
+        "6": 0
+      }
+    },
+    {
+      "name": "Iowa",
+      "seed": "9",
+      "roundProbabilities": {
+        "1": 0.599,
+        "2": 0.082,
+        "3": 0.03,
+        "4": 0.5,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "VCU",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.168,
+        "3": 0.032,
+        "4": 0.7,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Kentucky",
+      "seed": "7",
+      "roundProbabilities": {
+        "1": 0.614,
+        "2": 0.135,
+        "3": 0.051,
+        "4": 0.8,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Texas A&M",
+      "seed": "10",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.12,
+        "3": 0.026,
+        "4": 0.5,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Miami (Fla.)",
+      "seed": "7",
+      "roundProbabilities": {
+        "1": 0.659,
+        "2": 0.114,
+        "3": 0.037,
+        "4": 0.7,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Utah State",
+      "seed": "9",
+      "roundProbabilities": {
+        "1": 0.602,
+        "2": 0.078,
+        "3": 0.028,
+        "4": 0.8,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "Texas",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.272,
+        "3": 0.069,
+        "4": 0.011,
+        "5": 0.1,
+        "6": 0
+      }
+    },
+    {
+      "name": "High Point",
+      "seed": "12",
+      "roundProbabilities": {
+        "1": 1,
+        "2": 0.129,
+        "3": 0.8,
+        "4": 0.1,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Akron",
+      "seed": "12",
+      "roundProbabilities": {
+        "1": 0.319,
+        "2": 0.078,
+        "3": 0.3,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Hofstra",
+      "seed": "13",
+      "roundProbabilities": {
+        "1": 0.179,
+        "2": 0.069,
+        "3": 0.4,
+        "4": 0.1,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Santa Clara",
+      "seed": "10",
+      "roundProbabilities": {
+        "1": 0.386,
+        "2": 0.064,
+        "3": 0.02,
+        "4": 0.2,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Clemson",
+      "seed": "8",
+      "roundProbabilities": {
+        "1": 0.401,
+        "2": 0.046,
+        "3": 0.013,
+        "4": 0.2,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "UCF",
+      "seed": "10",
+      "roundProbabilities": {
+        "1": 0.266,
+        "2": 0.044,
+        "3": 0.6,
+        "4": 0.1,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Missouri",
+      "seed": "10",
+      "roundProbabilities": {
+        "1": 0.341,
+        "2": 0.033,
+        "3": 0.7,
+        "4": 0.1,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Northern Iowa",
+      "seed": "12",
+      "roundProbabilities": {
+        "1": 0.142,
+        "2": 0.032,
+        "3": 0.2,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Miami (OH)",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 0.155,
+        "2": 0.032,
+        "3": 0.4,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Villanova",
+      "seed": "8",
+      "roundProbabilities": {
+        "1": 0.398,
+        "2": 0.03,
+        "3": 0.8,
+        "4": 0.2,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "California Baptist",
+      "seed": "13",
+      "roundProbabilities": {
+        "1": 0.072,
+        "2": 0.7,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Furman",
+      "seed": "15",
+      "roundProbabilities": {
+        "1": 0.035,
+        "2": 0.3,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Wright State",
+      "seed": "14",
+      "roundProbabilities": {
+        "1": 0.045,
+        "2": 0.3,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Tennessee State",
+      "seed": "15",
+      "roundProbabilities": {
+        "1": 0.012,
+        "2": 0.1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Long Island",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0.8,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "BYU",
+      "seed": "6",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Georgia",
+      "seed": "8",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Hawaii",
+      "seed": "13",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Howard",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Idaho",
+      "seed": "15",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Kennesaw State",
+      "seed": "14",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Lehigh",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "McNeese State",
+      "seed": "12",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "NC State",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "North Carolina",
+      "seed": "6",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "North Dakota State",
+      "seed": "14",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Ohio State",
+      "seed": "8",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Penn",
+      "seed": "14",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Prairie View",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0.1,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Queens",
+      "seed": "15",
+      "roundProbabilities": {
+        "1": 0.2,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Saint Mary's",
+      "seed": "7",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Siena",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "SMU",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "South Florida",
+      "seed": "11",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Troy",
+      "seed": "13",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "UMBC",
+      "seed": "16",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    },
+    {
+      "name": "Wisconsin",
+      "seed": "5",
+      "roundProbabilities": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      }
+    }
+  ],
+  "updatedAt": "2026-03-20T11:01:14-05:00"
+}

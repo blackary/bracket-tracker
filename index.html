@@ -84,9 +84,9 @@
 
           <label class="field">
             <span class="field__label">Recent groups</span>
-            <div id="recent-groups-list" class="recent-groups recent-groups--empty">
-              <p class="recent-groups__empty">No recent groups yet</p>
-            </div>
+            <select id="recent-groups-list" class="field__input field__select recent-groups__select">
+              <option value="">No recent groups yet</option>
+            </select>
           </label>
 
           <p class="lookup-card__hint">
@@ -136,10 +136,17 @@
             <div class="card__header card__header--split">
               <div>
                 <p class="card__eyebrow">Top 10 Race</p>
-                <h2 class="card__title">How the selected top 10 changed over time</h2>
+                <h2 class="card__title">How the current top 10 got here</h2>
               </div>
 
               <div class="control-stack">
+                <div class="control-group">
+                  <span class="field__label">Replay</span>
+                  <button id="timeline-play" class="button button--ghost button--compact" type="button">
+                    Play from Start
+                  </button>
+                </div>
+
                 <div class="control-group">
                   <span class="field__label">Snapshot Metric</span>
                   <div id="metric-buttons" class="segmented-control" role="tablist" aria-label="Snapshot metric">
@@ -276,9 +283,8 @@
                     </button>
                   </div>
                   <div class="outlook-toolbar__actions">
-                    <input id="odds-file-input" class="visually-hidden" type="file" accept=".csv,text/csv" />
                     <button id="import-odds-button" class="button button--ghost button--compact" type="button">
-                      Import Odds
+                      Load Odds
                     </button>
                     <button id="clear-odds-button" class="button button--ghost button--compact" type="button">
                       Clear
@@ -286,7 +292,7 @@
                   </div>
                 </div>
                 <p id="odds-status" class="outlook-status">
-                  Import an EvanMiya tournament-odds CSV to add a projected finish view.
+                  Load EvanMiya tournament odds to add a projected finish view.
                 </p>
               </div>
               <div id="outlook-panel" class="outlook-panel outlook-panel--empty">
