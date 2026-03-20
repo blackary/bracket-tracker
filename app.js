@@ -3143,7 +3143,12 @@ async function loadGroup(rawInput, rawSeason) {
         return [];
       })
     ]);
-    const forecast = await fetchForecast(challenge.id, lookup.groupId, group.entries.length);
+    const forecast = group.forecastEligible
+      ? await fetchForecast(challenge.id, lookup.groupId, group.entries.length)
+      : {
+          available: false,
+          message: "ESPN forecast data is not available for this group yet."
+        };
     const hydratedChallenge = {
       ...challenge,
       propositions: propositionsResult.length ? propositionsResult : challenge.propositions
