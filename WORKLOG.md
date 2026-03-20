@@ -31,6 +31,7 @@
 - Compressed the chart card header and live-snapshot strip so the graph appears sooner without removing the scrub-aware stats beside it.
 - Removed the misleading public-group wording from the site copy and docs, since group links and IDs work regardless of ESPN's privacy label.
 - Reworked the chart timeline ticks so the default labels are horizontal and sparser, and added readable game tooltips on hover, focus, and selection.
+- Tightened the visual system to feel less generically generated: crisper paper cards, less blur, fewer pill shapes, and a more editorial hero and control treatment across desktop and mobile.
 
 ## 2026-03-19
 
