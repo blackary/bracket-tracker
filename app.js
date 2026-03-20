@@ -641,6 +641,48 @@ function formatShortDate(timestamp) {
   }).format(new Date(timestamp));
 }
 
+function truncateLabel(value, maxLength = 20) {
+  const normalized = String(value ?? "").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(maxLength - 1, 1))}…`;
+}
+
+function formatMetricDisplay(value, metric) {
+  return metric === METRIC_ACCURACY ? `${value.toFixed(1)}%` : `${value} pts`;
+}
+
+function layoutChartCallouts(callouts, minY, maxY, gap) {
+  if (!callouts.length) {
+    return [];
+  }
+
+  const laidOut = [...callouts]
+    .sort((left, right) => left.targetY - right.targetY)
+    .map((callout, index) => ({
+      ...callout,
+      y: Math.max(callout.targetY, minY + index * gap)
+    }));
+
+  for (let index = laidOut.length - 1; index >= 0; index -= 1) {
+    const maxAllowed = maxY - (laidOut.length - 1 - index) * gap;
+    laidOut[index].y = Math.min(laidOut[index].y, maxAllowed);
+  }
+
+  if (laidOut[0].y < minY) {
+    laidOut[0].y = minY;
+
+    for (let index = 1; index < laidOut.length; index += 1) {
+      laidOut[index].y = Math.max(laidOut[index].y, laidOut[index - 1].y + gap);
+    }
+  }
+
+  return laidOut;
+}
+
 function getPicksPropositions(model) {
   if (!model) {
     return [];
@@ -842,11 +884,16 @@ function renderChart(model, selectedIndex) {
       color: LEADER_COLORS[index % LEADER_COLORS.length],
       entry
     }));
+  const legendStandings = getSnapshotStandings(model, selectedIndex, state.metric);
+  const legendDetailsById = new Map(
+    legendStandings.map(entry => [entry.id, { rank: entry.rank, valueText: formatMetricDisplay(metricValue(entry, state.metric), state.metric) }])
+  );
 
-  const width = 900;
-  const height = 340;
-  const padding = { top: 20, right: 42, bottom: 32, left: 42 };
-  const chartWidth = width - padding.left - padding.right;
+  const width = 980;
+  const height = 360;
+  const padding = { top: 20, right: 210, bottom: 32, left: 42 };
+  const plotRight = width - padding.right;
+  const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
   const values = [];
 
@@ -867,6 +914,59 @@ function renderChart(model, selectedIndex) {
 
   const gridValues = state.metric === METRIC_ACCURACY ? [0, 25, 50, 75, 100] : buildPointTicks(maxValue);
   const selectionX = xFor(selectedIndex);
+  const labeledLeaderCount = Math.min(leaderEntries.length, 5);
+  const callouts = layoutChartCallouts(
+    leaderEntries.slice(0, labeledLeaderCount).map(({ entry, color }) => {
+      const currentSnapshot = entry.series[selectedIndex];
+      const currentValue = state.metric === METRIC_ACCURACY ? currentSnapshot.accuracyPct : currentSnapshot.points;
+      const currentX = xFor(selectedIndex);
+      const currentY = yFor(currentValue);
+      const shortLabel = truncateLabel(entry.name, 20);
+      const valueText = formatMetricDisplay(currentValue, state.metric);
+
+      return {
+        color,
+        currentX,
+        currentY,
+        entryId: entry.id,
+        label: shortLabel,
+        labelWidth: Math.max(122, Math.min(184, Math.max(shortLabel.length * 7.3, valueText.length * 7) + 28)),
+        targetY: currentY,
+        valueText
+      };
+    }),
+    padding.top + 18,
+    height - padding.bottom - 18,
+    42
+  );
+  const calloutMarkup = callouts
+    .map(callout => {
+      const labelX = plotRight + 18;
+      const labelY = callout.y;
+      const labelHeight = 38;
+      const connectorMidX = Math.min(callout.currentX + 20, labelX - 12);
+
+      return `
+        <path
+          class="chart-connector"
+          d="M${callout.currentX + 6},${callout.currentY} L${connectorMidX},${callout.currentY} L${labelX - 10},${labelY} L${labelX},${labelY}"
+          stroke="${callout.color}"
+        />
+        <g transform="translate(${labelX}, ${labelY - labelHeight / 2})">
+          <rect
+            class="chart-label-box"
+            width="${callout.labelWidth}"
+            height="${labelHeight}"
+            rx="12"
+            stroke="${callout.color}"
+          />
+          <circle cx="11" cy="${labelHeight / 2}" r="4.5" fill="${callout.color}" />
+          <text class="chart-callout" x="22" y="15">${escapeHtml(callout.label)}</text>
+          <text class="chart-callout-value" x="22" y="28">${escapeHtml(callout.valueText)}</text>
+        </g>
+      `;
+    })
+    .join("");
 
   dom.chartPanel.className = "chart-panel";
   dom.chartPanel.innerHTML = `
@@ -877,7 +977,7 @@ function renderChart(model, selectedIndex) {
             const y = yFor(value);
 
             return `
-              <line class="chart-grid-line" x1="${padding.left}" x2="${width - padding.right}" y1="${y}" y2="${y}" />
+              <line class="chart-grid-line" x1="${padding.left}" x2="${plotRight}" y1="${y}" y2="${y}" />
               <text class="chart-axis-label" x="${padding.left - 10}" y="${y + 4}" text-anchor="end">${escapeHtml(
                 state.metric === METRIC_ACCURACY ? `${value}%` : String(value)
               )}</text>
@@ -899,31 +999,32 @@ function renderChart(model, selectedIndex) {
             const currentValue = state.metric === METRIC_ACCURACY ? currentSnapshot.accuracyPct : currentSnapshot.points;
             const currentX = xFor(selectedIndex);
             const currentY = yFor(currentValue);
-            const labelX = Math.min(currentX + 8, width - padding.right - 4);
-            const labelAnchor = labelX >= width - padding.right - 10 ? "end" : "start";
 
             return `
-              <path class="chart-path ${index >= 4 ? "chart-path--muted" : ""}" d="${path}" stroke="${color}" />
+              <path class="chart-path ${index >= labeledLeaderCount ? "chart-path--muted" : ""}" d="${path}" stroke="${color}" />
               <circle class="chart-point" cx="${currentX}" cy="${currentY}" r="5" fill="${color}" />
-              <text class="chart-callout" x="${labelX}" y="${currentY - 10}" text-anchor="${labelAnchor}">${escapeHtml(
-                index < 4 ? entry.name : ""
-              )}</text>
             `;
           })
           .join("")}
+        ${calloutMarkup}
       </svg>
     </div>
   `;
 
   dom.leaderLegend.innerHTML = leaderEntries
-    .map(
-      ({ entry, color }) => `
+    .map(({ entry, color }) => {
+      const details = legendDetailsById.get(entry.id);
+
+      return `
         <div class="legend__item">
           <span class="legend__dot" style="background:${color}"></span>
-          <span>${escapeHtml(entry.name)}</span>
+          <span class="legend__copy">
+            <span class="legend__name">${escapeHtml(entry.name)}</span>
+            <span class="legend__meta">${escapeHtml(details ? `#${details.rank} • ${details.valueText}` : "")}</span>
+          </span>
         </div>
       `
-    )
+    })
     .join("");
 }
 
