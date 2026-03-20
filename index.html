@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bracket Time Machine</title>
+    <meta
+      name="description"
+      content="Track ESPN Tournament Challenge group leaders over time with a static app."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero__copy">
+          <p class="eyebrow">Static ESPN Group Tracker</p>
+          <h1>Bracket Time Machine</h1>
+          <p class="hero__lede">
+            Load a public ESPN Tournament Challenge group, rewind to any
+            completed game, compare leaders by ESPN points or pick accuracy,
+            and see who still has a path to win.
+          </p>
+        </div>
+
+        <form id="group-form" class="lookup-card" autocomplete="off">
+          <label class="field">
+            <span class="field__label">Group ID or ESPN group URL</span>
+            <input
+              id="group-input"
+              class="field__input"
+              name="group"
+              placeholder="1d6c7953-500f-3673-b6f3-d7b11e8f32f3"
+              spellcheck="false"
+              required
+            />
+          </label>
+
+          <label class="field field--season">
+            <span class="field__label">Season</span>
+            <input
+              id="season-input"
+              class="field__input"
+              name="season"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="4"
+              placeholder="2026"
+            />
+          </label>
+
+          <div class="lookup-card__actions">
+            <button id="load-button" class="button button--primary" type="submit">
+              Load Group
+            </button>
+            <button id="sample-button" class="button button--secondary" type="button">
+              Load Sample
+            </button>
+          </div>
+
+          <p class="lookup-card__hint">
+            Works against ESPN’s public group and challenge APIs. For local use,
+            serve this folder over HTTP instead of opening the file directly.
+          </p>
+        </form>
+      </header>
+
+      <div id="status-banner" class="status-banner status-banner--idle">
+        Enter a public group ID to build the timeline.
+      </div>
+
+      <main class="dashboard">
+        <section class="summary-grid" aria-label="Summary">
+          <article class="metric-card">
+            <p class="metric-card__label">Selected Window</p>
+            <div id="summary-snapshot" class="metric-card__value">No group loaded</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-card__label">Leader Before Tip</p>
+            <div id="summary-leader" class="metric-card__value">-</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-card__label">Completed Games</p>
+            <div id="summary-decided" class="metric-card__value">0</div>
+          </article>
+          <article class="metric-card">
+            <p class="metric-card__label">Still Alive Today</p>
+            <div id="summary-alive" class="metric-card__value">-</div>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="card card--chart">
+            <div class="card__header card__header--split">
+              <div>
+                <p class="card__eyebrow">Leader Graph</p>
+                <h2 class="card__title">Who held the top spot over time</h2>
+              </div>
+
+              <div id="metric-buttons" class="segmented-control" role="tablist" aria-label="Metric">
+                <button
+                  class="segmented-control__button is-active"
+                  type="button"
+                  data-metric="points"
+                  aria-pressed="true"
+                >
+                  ESPN Points
+                </button>
+                <button
+                  class="segmented-control__button"
+                  type="button"
+                  data-metric="accuracy"
+                  aria-pressed="false"
+                >
+                  Accuracy
+                </button>
+              </div>
+            </div>
+
+            <div id="chart-panel" class="chart-panel chart-panel--empty">
+              Load a group to render the leader chart.
+            </div>
+            <div id="leader-legend" class="legend"></div>
+          </article>
+
+          <article class="card card--timeline">
+            <div class="card__header">
+              <p class="card__eyebrow">Time Machine</p>
+              <h2 class="card__title">Standings before each completed game</h2>
+            </div>
+
+            <div class="timeline-controls">
+              <button id="timeline-prev" class="button button--ghost" type="button">
+                Previous
+              </button>
+              <input id="timeline-range" class="timeline-range" type="range" min="0" max="0" value="0" />
+              <button id="timeline-next" class="button button--ghost" type="button">
+                Next
+              </button>
+            </div>
+
+            <p id="timeline-caption" class="timeline-caption">
+              No historical snapshots yet.
+            </p>
+
+            <div id="timeline-game" class="timeline-game timeline-game--empty">
+              Load a group to inspect the schedule and the pregame leaders.
+            </div>
+          </article>
+
+          <article class="card card--table">
+            <div class="card__header">
+              <p class="card__eyebrow">Snapshot Standings</p>
+              <h2 class="card__title">Rankings at the selected moment</h2>
+            </div>
+            <div id="standings-panel" class="table-wrap table-wrap--empty">
+              The standings table will appear here.
+            </div>
+          </article>
+
+          <aside class="side-rail">
+            <article class="card">
+              <div class="card__header">
+                <p class="card__eyebrow">Win Outlook</p>
+                <h2 class="card__title">Who still has a path to first</h2>
+              </div>
+              <div id="outlook-panel" class="outlook-panel outlook-panel--empty">
+                Late-round outlook will appear here after a group loads.
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card__header">
+                <p class="card__eyebrow">Group Notes</p>
+                <h2 class="card__title">What this tracker is using</h2>
+              </div>
+              <div id="details-panel" class="details-panel">
+                <p class="details-panel__empty">
+                  Public ESPN challenge data, group picks, and optional forecast
+                  data are combined here. Historical snapshots are ordered by
+                  completed game tip times.
+                </p>
+              </div>
+            </article>
+          </aside>
+
+          <article class="card card--picks">
+            <div class="card__header card__header--split">
+              <div>
+                <p class="card__eyebrow">Picks Matrix</p>
+                <h2 class="card__title">View every bracket pick as a table</h2>
+              </div>
+
+              <div class="card__actions">
+                <label class="field field--inline">
+                  <span class="field__label">Round</span>
+                  <select id="picks-round-select" class="field__input field__select">
+                    <option value="all">All rounds</option>
+                  </select>
+                </label>
+                <button id="download-csv-button" class="button button--secondary" type="button">
+                  Download CSV
+                </button>
+              </div>
+            </div>
+
+            <p id="picks-summary" class="timeline-caption">
+              Load a group to inspect bracket picks and export them as CSV.
+            </p>
+
+            <div id="picks-panel" class="table-wrap table-wrap--empty">
+              The picks matrix will appear here.
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
