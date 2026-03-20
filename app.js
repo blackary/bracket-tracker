@@ -387,7 +387,7 @@ function renderHeroGroupSpotlight(model) {
   if (!model) {
     dom.heroGroupSpotlight.className = "hero-group hero-group--empty";
     dom.heroGroupName.textContent = "No group loaded";
-    dom.heroGroupMeta.textContent = "Choose a public ESPN group to bring its tournament race into view.";
+    dom.heroGroupMeta.textContent = "Choose an ESPN group to bring its tournament race into view.";
     return;
   }
 
@@ -1061,7 +1061,6 @@ function buildModel(challenge, groupResponse, forecastResponse) {
       limited: Boolean(groupResponse.truncated),
       loadedEntries: groupResponse.loadedEntries || groupResponse.entries.length,
       name: groupResponse.groupSettings?.name || groupResponse.groupId,
-      public: Boolean(groupResponse.groupSettings?.public),
       requestedEntries: groupResponse.requestedEntries || groupResponse.entries.length,
       size: groupResponse.size || groupResponse.entries.length
     },

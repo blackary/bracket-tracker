@@ -2,7 +2,7 @@
 
 Static ESPN Tournament Challenge group tracker.
 
-It loads a public group by id, reconstructs the group standings before every completed game, and lets you switch between:
+It loads a group by ID, reconstructs the group standings before every completed game, and lets you switch between:
 
 - ESPN points
 - Pick accuracy
@@ -67,13 +67,13 @@ https://blackary.github.io/bracket-tracker/?groupId=6e682872-7e5f-3aa2-84bf-003c
 
 ## Notes
 
-- This app uses ESPN’s public Gambit APIs directly from the browser.
+- This app uses ESPN’s Gambit APIs directly from the browser.
 - ESPN's API currently returns CORS headers that allow a GitHub Pages origin.
-- The built-in example button loads ESPN's featured `SportsCenter` public group for the 2026 tournament.
-- Historical snapshots are reconstructed from completed propositions and public group picks.
+- The built-in example button loads ESPN's featured `SportsCenter` group for the 2026 tournament.
+- Historical snapshots are reconstructed from completed propositions and group picks.
 - EvanMiya tournament odds are shipped as same-origin JSON and refreshed by GitHub Actions, so the app can load them with one click while staying compatible with GitHub Pages.
 - The imported projection ranks entries by expected remaining ESPN points from the EvanMiya round-advance odds. It is a projection overlay, not a full joint bracket simulation.
-- Large groups ask ESPN for up to `1000` entries, but ESPN’s public group feed may return fewer. As of March 20, 2026, the `SportsCenter` example group returned `100` public entries.
+- Large groups ask ESPN for up to `1000` entries, but ESPN’s group feed may return fewer. As of March 20, 2026, the `SportsCenter` example group returned `100` entries.
 - CSV export uses native share when possible on mobile and otherwise falls back to an in-app export sheet with save, open, and copy actions.
 - CSV downloads include all loaded rounds by default, even if the on-page picks table is filtered to a subset of rounds.
 - The late-round win outlook falls back to possible-max math until ESPN’s group forecast endpoint becomes available.

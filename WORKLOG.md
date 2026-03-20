@@ -13,7 +13,7 @@
 - Tightened the site copy so the hero, status banner, empty states, picks area, and export language all read in the same editorial voice as the rest of the app.
 - Reworked recent groups into visible quick-load buttons, added a session-storage fallback when persistent storage is restricted, and added a prominent hero spotlight for the currently loaded group name.
 - Added an optional EvanMiya projection mode with CSV import, expected-score ranking for loaded brackets, local persistence for imported odds, and desktop/mobile QA against a live SportsCenter group.
-- Kept the app static by using manual odds import instead of a brittle live scrape, since EvanMiya's public tournament-odds page does not expose browser-readable CORS responses for GitHub Pages.
+- Kept the app static by using manual odds import instead of a brittle live scrape, since EvanMiya's tournament-odds page does not expose browser-readable CORS responses for GitHub Pages.
 - Raised the compact chart height, added clearer keyboard focus states, and did another desktop and mobile smoke pass across chart scrubbing, mode toggles, round filtering, and recent-group selection.
 - Removed the confusing `Still Alive Today` summary card and left the dedicated win-outlook panel as the single place for current can-still-win status.
 - Added a `Leader Gap` chart mode so the top-10 graph can be viewed relative to the current leader instead of only as raw points or rank.
@@ -29,15 +29,16 @@
 - Reworked the chart labeling so larger layouts show all 10 tracked entries in the chart lane at once, with smaller layouts falling back to a fully visible 10-entry legend instead of a horizontal scroller.
 - Restored lead-change and biggest-mover snapshot stats inside the chart strip, added visible game labels to the chart timeline ticks, and made scrub updates lighter by rerendering only snapshot-dependent sections on animation frames.
 - Compressed the chart card header and live-snapshot strip so the graph appears sooner without removing the scrub-aware stats beside it.
+- Removed the misleading public-group wording from the site copy and docs, since group links and IDs work regardless of ESPN's privacy label.
 
 ## 2026-03-19
 
 - Built the first static version of Bracket Tracker.
 - Added ESPN group loading, historical leaderboard reconstruction, points or accuracy toggle, leader graph, still-alive outlook, picks matrix, and CSV export.
-- Verified that ESPN's public Gambit API responds with CORS headers for a GitHub Pages origin.
+- Verified that ESPN's Gambit API responds with CORS headers for a GitHub Pages origin.
 - Added GitHub Pages deployment plumbing so pushes to `main` can publish the site.
 - Reworked the leader chart labels to use a separate callout lane and richer legend metadata so crowded names are easier to read.
-- Replaced the original hard-coded sample group with ESPN's featured SportsCenter public group.
+- Replaced the original hard-coded sample group with ESPN's featured SportsCenter group.
 - Changed the chart to follow the current top 10 by ESPN points and added a chart-view toggle for rank vs point totals.
 - Moved the scrubber into the chart card and added per-game markers so the graph itself can be scrubbed game by game.
 - Changed the chart cohort to the selected moment's top 10 so scrubbing updates who is shown at each point in the tournament.
@@ -45,6 +46,6 @@
 - Added more snapshot stats, including lead margin, top-10 cutline, lead changes, and biggest mover, and tuned the summary grid to wrap earlier.
 - Reworked the phone layout to feel more native, with swipeable summary cards, a compact chart toolbar, scrolling legend chips, safer touch spacing, and another desktop and mobile screenshot pass.
 - Renamed the app to Bracket Tracker, changed the example button copy, kept chart colors stable by bracket across snapshots, added recent-group history in localStorage, and replaced mobile CSV export with a share-or-export-sheet fallback.
-- Tried to cap large groups at 1000 loaded entries, then verified that ESPN's current public group feed for the SportsCenter example only returns 100 entries even when asked for more, so the app now reports that limit honestly in the UI.
+- Tried to cap large groups at 1000 loaded entries, then verified that ESPN's current group feed for the SportsCenter example only returns 100 entries even when asked for more, so the app now reports that limit honestly in the UI.
 - Added direct pointer scrubbing on the chart plot area itself so dragging or tapping on the graph updates the selected snapshot without needing the lower slider.
 - Relaxed the right-side callout packing again so leader labels get more vertical space and a slight stagger instead of reading as overlapping cards.
