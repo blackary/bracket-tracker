@@ -8,7 +8,7 @@ const MAX_PAGE_SIZE = 200;
 const MAX_LOADED_ENTRIES = 1000;
 const MAX_RECENT_GROUPS = 8;
 const MAX_CHART_LINES = 10;
-const MAX_CHART_CALLOUTS = 4;
+const MAX_CHART_CALLOUTS = MAX_CHART_LINES;
 const METRIC_POINTS = "points";
 const METRIC_ACCURACY = "accuracy";
 const CHART_MODE_RANK = "rank";
@@ -1720,6 +1720,13 @@ function layoutChartCallouts(callouts, minY, maxY, gap) {
     }
   }
 
+  if (laidOut.length > 6) {
+    return laidOut.map(callout => ({
+      ...callout,
+      laneOffset: 0
+    }));
+  }
+
   let previousY = -Infinity;
   let lane = 0;
 
@@ -2283,15 +2290,18 @@ function renderChart(model, selectedIndex) {
   const medium = viewportWidth <= 1200;
   const width = compact ? 760 : 980;
   const height = compact ? 360 : 360;
-  const calloutLimit = compact ? 0 : medium ? 3 : MAX_CHART_CALLOUTS;
-  const calloutGap = medium ? 50 : 54;
-  const calloutHeight = 42;
+  const calloutLimit = compact ? 0 : Math.min(MAX_CHART_CALLOUTS, leaderEntries.length);
+  const calloutHeight = medium ? 26 : 28;
   const padding = {
     top: 20,
     right: compact ? 24 : medium ? 224 : 238,
     bottom: compact ? 36 : 32,
     left: compact ? 34 : 42
   };
+  const calloutGap =
+    calloutLimit > 1
+      ? Math.max(calloutHeight + 4, Math.floor((height - padding.top - padding.bottom - calloutHeight) / (calloutLimit - 1)))
+      : calloutHeight + 4;
   const plotRight = width - padding.right;
   const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
@@ -2356,8 +2366,9 @@ function renderChart(model, selectedIndex) {
         return null;
       }
 
-      const shortLabel = truncateLabel(entry.name, 18);
+      const shortLabel = truncateLabel(entry.name, medium ? 16 : 18);
       const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+      const estimatedTextWidth = shortLabel.length * 6.7 + valueText.length * 6.1;
 
       return {
         color,
@@ -2365,7 +2376,7 @@ function renderChart(model, selectedIndex) {
         currentY: selectedDisplayPoint.y,
         entryId: entry.id,
         label: shortLabel,
-        labelWidth: Math.max(126, Math.min(180, Math.max(shortLabel.length * 7.2, valueText.length * 6.8) + 30)),
+        labelWidth: Math.max(132, Math.min(medium ? 174 : 188, estimatedTextWidth + 38)),
         sortValue:
           state.chartMode === CHART_MODE_RANK
             ? selectedSnapshotEntry.rank
@@ -2391,6 +2402,7 @@ function renderChart(model, selectedIndex) {
       const labelY = callout.y;
       const labelHeight = calloutHeight;
       const connectorMidX = Math.min(callout.currentX + 20, labelX - 12);
+      const textY = labelHeight / 2 + 3;
 
       return `
         <path
@@ -2407,8 +2419,10 @@ function renderChart(model, selectedIndex) {
             stroke="${callout.color}"
           />
           <circle cx="11" cy="${labelHeight / 2}" r="4.5" fill="${callout.color}" />
-          <text class="chart-callout" x="22" y="15">${escapeHtml(callout.label)}</text>
-          <text class="chart-callout-value" x="22" y="28">${escapeHtml(callout.valueText)}</text>
+          <text class="chart-callout" x="22" y="${textY}">${escapeHtml(callout.label)}</text>
+          <text class="chart-callout-value" x="${callout.labelWidth - 12}" y="${textY}" text-anchor="end">${escapeHtml(
+            callout.valueText
+          )}</text>
         </g>
       `;
     })

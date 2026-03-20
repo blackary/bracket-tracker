@@ -1070,13 +1070,13 @@ select {
 
 .chart-callout {
   fill: var(--ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .chart-callout-value {
   fill: var(--ink-faint);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
@@ -1847,17 +1847,15 @@ select {
   }
 
   .legend {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scroll-padding-inline: 0.1rem;
+    flex-wrap: wrap;
+    overflow: visible;
     margin-top: 0.8rem;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0;
   }
 
   .legend__item {
-    min-width: min(13.75rem, 82vw);
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: calc(50% - 0.5rem);
     padding: 0.68rem 0.8rem;
     border: 1px solid rgba(24, 32, 44, 0.08);
     border-radius: 1rem;
@@ -1975,7 +1973,8 @@ select {
   }
 
   .legend__item {
-    min-width: min(14rem, 84vw);
+    flex-basis: 100%;
+    min-width: 100%;
   }
 
   .snapshot-strip__items {
