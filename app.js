@@ -66,6 +66,7 @@ let browserStorage;
 
 const state = {
   chartMode: CHART_MODE_RANK,
+  focusedEntryId: "",
   chartPointerId: null,
   exportSheetUrl: null,
   importedOdds: loadImportedOdds(),
@@ -2256,6 +2257,8 @@ function renderChart(model, selectedIndex) {
   }
 
   const chartEntryIds = new Set(chartEntries.map(entry => entry.id));
+  const focusedEntryId = chartEntryIds.has(state.focusedEntryId) ? state.focusedEntryId : "";
+  const hasFocusedEntry = Boolean(focusedEntryId);
   const chartSnapshots = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
     const standings = getSnapshotStandings(model, snapshotIndex, chartMetric);
 
@@ -2410,14 +2413,19 @@ function renderChart(model, selectedIndex) {
       const labelHeight = calloutHeight;
       const connectorMidX = Math.min(callout.currentX + 20, labelX - 12);
       const textY = labelHeight / 2 + 3;
+      const focusClass = hasFocusedEntry
+        ? callout.entryId === focusedEntryId
+          ? " is-focused"
+          : " is-dimmed"
+        : "";
 
       return `
         <path
-          class="chart-connector"
+          class="chart-connector${focusClass}"
           d="M${callout.currentX + 6},${callout.currentY} L${connectorMidX},${callout.currentY} L${labelX - 10},${labelY} L${labelX},${labelY}"
           stroke="${callout.color}"
         />
-        <g transform="translate(${labelX}, ${labelY - labelHeight / 2})">
+        <g class="chart-callout-group${focusClass}" data-entry-id="${escapeAttribute(callout.entryId)}" transform="translate(${labelX}, ${labelY - labelHeight / 2})">
           <rect
             class="chart-label-box"
             width="${callout.labelWidth}"
@@ -2457,23 +2465,6 @@ function renderChart(model, selectedIndex) {
           .join("")}
         ${snapshotTickMarkup}
         <line class="chart-selection-line" x1="${selectionX}" x2="${selectionX}" y1="${padding.top}" y2="${height - padding.bottom}" />
-        ${leaderEntries
-          .map(({ entry, color }) => {
-            const displayPoints = displayPointsByEntryId.get(entry.id) || [];
-            const path = buildChartPath(displayPoints);
-            const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
-            const selectedDisplayPoint = displayPoints[selectedIndex];
-
-            return `
-              ${path ? `<path class="chart-path" d="${path}" stroke="${color}" />` : ""}
-              ${
-                selectedSnapshotEntry && selectedDisplayPoint
-                  ? `<circle class="chart-point" cx="${selectedDisplayPoint.x}" cy="${selectedDisplayPoint.y}" r="5" fill="${color}" />`
-                  : ""
-              }
-            `;
-          })
-          .join("")}
         <rect
           class="chart-hitbox"
           x="${padding.left}"
@@ -2482,6 +2473,35 @@ function renderChart(model, selectedIndex) {
           height="${chartHeight}"
           rx="16"
         />
+        ${leaderEntries
+          .map(({ entry, color }) => {
+            const displayPoints = displayPointsByEntryId.get(entry.id) || [];
+            const path = buildChartPath(displayPoints);
+            const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
+            const selectedDisplayPoint = displayPoints[selectedIndex];
+            const focusClass = hasFocusedEntry
+              ? entry.id === focusedEntryId
+                ? " is-focused"
+                : " is-dimmed"
+              : "";
+
+            return `
+              ${
+                path
+                  ? `
+                    <path class="chart-path${focusClass}" d="${path}" stroke="${color}" />
+                    <path class="chart-path-target" d="${path}" data-entry-id="${escapeAttribute(entry.id)}" />
+                  `
+                  : ""
+              }
+              ${
+                selectedSnapshotEntry && selectedDisplayPoint
+                  ? `<circle class="chart-point${focusClass}" cx="${selectedDisplayPoint.x}" cy="${selectedDisplayPoint.y}" r="5" fill="${color}" data-entry-id="${escapeAttribute(entry.id)}" />`
+                  : ""
+              }
+            `;
+          })
+          .join("")}
         ${calloutMarkup}
       </svg>
     </div>
@@ -2493,6 +2513,11 @@ function renderChart(model, selectedIndex) {
       const selectedSnapshotEntry = selectedChartStandings.get(entry.id);
       const currentValueText = formatChartValueDisplay(currentSnapshotEntry, state.chartMode, chartMetric, currentChartSnapshot.leaderValue);
       const selectedValueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, chartMetric, selectedChartSnapshot.leaderValue);
+      const focusClass = hasFocusedEntry
+        ? entry.id === focusedEntryId
+          ? " is-focused"
+          : " is-dimmed"
+        : "";
       const meta =
         selectedIndex === model.completedProps.length
           ? state.chartMode === CHART_MODE_RANK
@@ -2503,13 +2528,13 @@ function renderChart(model, selectedIndex) {
             : `Selected ${selectedValueText} • Now ${currentValueText}`;
 
       return `
-        <div class="legend__item">
+        <button class="legend__item${focusClass}" type="button" data-entry-id="${escapeAttribute(entry.id)}" aria-pressed="${entry.id === focusedEntryId ? "true" : "false"}">
           <span class="legend__dot" style="background:${color}"></span>
           <span class="legend__copy">
             <span class="legend__name">${escapeHtml(entry.name)}</span>
             <span class="legend__meta">${escapeHtml(meta)}</span>
           </span>
-        </div>
+        </button>
       `
     })
     .join("");
@@ -2977,6 +3002,7 @@ function renderEmptyState() {
   cancelPendingSelectionRender();
   stopPlayback();
   finishChartScrub();
+  state.focusedEntryId = "";
   renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
   dom.chartSnapshotStrip.textContent = "Load a group to pin the live snapshot beside the chart.";
@@ -3101,6 +3127,7 @@ async function loadGroup(rawInput, rawSeason) {
   closeMobileExportSheet();
   stopPlayback();
   finishChartScrub();
+  state.focusedEntryId = "";
   state.loading = true;
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
@@ -3626,6 +3653,21 @@ function adjustTimeline(delta) {
   setSelectedIndex(state.selectedIndex + delta);
 }
 
+function toggleFocusedEntry(entryId) {
+  if (!state.model) {
+    return;
+  }
+
+  const nextEntryId = String(entryId || "");
+
+  if (!nextEntryId) {
+    return;
+  }
+
+  state.focusedEntryId = state.focusedEntryId === nextEntryId ? "" : nextEntryId;
+  renderChart(state.model, Math.min(state.selectedIndex, state.model.completedProps.length));
+}
+
 function handlePlaybackToggle() {
   if (state.playbackTimer !== null) {
     stopPlayback();
@@ -3695,6 +3737,26 @@ function handleChartPointerUp(event) {
   finishChartScrub(event.pointerId);
 }
 
+function handleChartEntryClick(event) {
+  const target = event.target.closest("[data-entry-id]");
+
+  if (!target) {
+    return;
+  }
+
+  toggleFocusedEntry(target.dataset.entryId);
+}
+
+function handleLegendEntryClick(event) {
+  const target = event.target.closest("[data-entry-id]");
+
+  if (!target) {
+    return;
+  }
+
+  toggleFocusedEntry(target.dataset.entryId);
+}
+
 function init() {
   const lookup = getLookupFromUrl();
 
@@ -3724,6 +3786,8 @@ function init() {
   dom.chartPanel.addEventListener("pointerup", handleChartPointerUp);
   dom.chartPanel.addEventListener("pointercancel", handleChartPointerUp);
   dom.chartPanel.addEventListener("lostpointercapture", handleChartPointerUp);
+  dom.chartPanel.addEventListener("click", handleChartEntryClick);
+  dom.leaderLegend.addEventListener("click", handleLegendEntryClick);
   dom.exportSheetClose?.addEventListener("click", closeMobileExportSheet);
   dom.exportSheet?.addEventListener("click", event => {
     if (event.target === dom.exportSheet) {

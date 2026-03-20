@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Added persistent chart focus so clicking a line, callout, or legend name keeps one bracket highlighted until clicked again, with the rest of the field dimmed for easier tracking.
 - Removed the duplicated top summary-card row so the chart-side live snapshot strip is the single place for scrub-aware snapshot stats.
 - Reworked recent groups back into a bounded dropdown, kept the prominent group spotlight, and verified the dropdown can reopen previously viewed groups on mobile and desktop.
 - Stabilized the chart cohort to the current top 10 for the selected metric so lines no longer pop in and out while scrubbing, and expanded the rank view so those lines stay visible even when they fell outside the top 10 earlier.

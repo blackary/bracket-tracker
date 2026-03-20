@@ -965,6 +965,7 @@ select {
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.7;
+  transition: opacity 160ms ease, stroke-width 160ms ease;
 }
 
 .chart-path {
@@ -972,10 +973,47 @@ select {
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: opacity 160ms ease, stroke-width 160ms ease, filter 160ms ease;
 }
 
 .chart-path--muted {
   opacity: 0.2;
+}
+
+.chart-path.is-dimmed,
+.chart-connector.is-dimmed,
+.chart-point.is-dimmed,
+.chart-callout-group.is-dimmed,
+.legend__item.is-dimmed {
+  opacity: 0.22;
+}
+
+.chart-path.is-focused {
+  stroke-width: 4.5;
+  filter: drop-shadow(0 0 12px rgba(16, 32, 51, 0.14));
+}
+
+.chart-connector.is-focused {
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.chart-point {
+  stroke: #fff8ef;
+  stroke-width: 2;
+  transition: opacity 160ms ease, r 160ms ease, stroke-width 160ms ease;
+}
+
+.chart-point.is-focused {
+  stroke-width: 3;
+}
+
+.chart-path-target {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
 }
 
 .chart-hitbox {
@@ -983,11 +1021,6 @@ select {
   cursor: ew-resize;
   pointer-events: all;
   touch-action: none;
-}
-
-.chart-point {
-  stroke: #fff8ef;
-  stroke-width: 2;
 }
 
 .chart-panel.is-scrubbing,
@@ -999,6 +1032,16 @@ select {
   fill: rgba(255, 250, 242, 0.97);
   stroke-width: 1.75;
   filter: drop-shadow(0 10px 24px rgba(16, 32, 51, 0.08));
+}
+
+.chart-callout-group {
+  cursor: pointer;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.chart-callout-group.is-focused .chart-label-box {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 16px 30px rgba(16, 32, 51, 0.14));
 }
 
 .chart-callout {
@@ -1021,6 +1064,7 @@ select {
 }
 
 .legend__item {
+  appearance: none;
   display: inline-flex;
   align-items: flex-start;
   gap: 0.45rem;
@@ -1031,7 +1075,16 @@ select {
   background: rgba(255, 255, 255, 0.7);
   box-shadow: 0 10px 24px rgba(37, 30, 19, 0.08);
   color: var(--ink-soft);
+  font: inherit;
   font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.legend__item.is-focused {
+  border-color: rgba(24, 32, 44, 0.18);
+  box-shadow: 0 16px 30px rgba(37, 30, 19, 0.12);
 }
 
 .legend__copy {
