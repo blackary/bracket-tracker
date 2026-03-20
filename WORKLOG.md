@@ -1,5 +1,11 @@
 # Work Log
 
+## 2026-03-20
+
+- Tightened the app's visual direction with a darker hero treatment, stronger card surfaces, cleaner legend chips, and warmer chart and table panels so the page reads less like a generic dashboard.
+- Added a short feature-pill row in the hero to give the landing area more structure without changing the app flow.
+- Validated the styling pass against the live SportsCenter example in headless Chrome with fresh desktop and mobile screenshots plus a ready-state DOM check.
+
 ## 2026-03-19
 
 - Built the first static version of Bracket Tracker.
