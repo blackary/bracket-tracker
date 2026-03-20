@@ -1,6 +1,7 @@
 const GAMBIT_BASE = "https://gambit-api.fantasy.espn.com/apis/v1";
 const SAMPLE_GROUP = {
-  groupId: "1d6c7953-500f-3673-b6f3-d7b11e8f32f3",
+  groupId: "6e682872-7e5f-3aa2-84bf-003cb6a630ae",
+  name: "SportsCenter",
   season: 2026
 };
 const MAX_PAGE_SIZE = 200;

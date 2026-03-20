@@ -7,3 +7,4 @@
 - Verified that ESPN's public Gambit API responds with CORS headers for a GitHub Pages origin.
 - Added GitHub Pages deployment plumbing so pushes to `main` can publish the site.
 - Reworked the leader chart labels to use a separate callout lane and richer legend metadata so crowded names are easier to read.
+- Replaced the original hard-coded sample group with ESPN's featured SportsCenter public group.

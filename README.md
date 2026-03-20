@@ -39,7 +39,7 @@ http://localhost:8000
 Example:
 
 ```text
-http://localhost:8000/?groupId=1d6c7953-500f-3673-b6f3-d7b11e8f32f3&season=2026
+http://localhost:8000/?groupId=6e682872-7e5f-3aa2-84bf-003cb6a630ae&season=2026
 ```
 
 ## GitHub Pages
@@ -57,12 +57,13 @@ https://blackary.github.io/bracket-tracker/
 Example with a group preloaded:
 
 ```text
-https://blackary.github.io/bracket-tracker/?groupId=1d6c7953-500f-3673-b6f3-d7b11e8f32f3&season=2026
+https://blackary.github.io/bracket-tracker/?groupId=6e682872-7e5f-3aa2-84bf-003cb6a630ae&season=2026
 ```
 
 ## Notes
 
 - This app uses ESPN’s public Gambit APIs directly from the browser.
 - ESPN's API currently returns CORS headers that allow a GitHub Pages origin.
+- The built-in sample points at ESPN's featured `SportsCenter` public group for the 2026 tournament.
 - Historical snapshots are reconstructed from completed propositions and public group picks.
 - The late-round win outlook falls back to possible-max math until ESPN’s group forecast endpoint becomes available.
