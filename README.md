@@ -13,7 +13,7 @@ It also shows:
 - direct scrubbing across the chart itself, plus an in-chart game scrubber with a marker for every completed game
 - expanded snapshot stats including lead margin, cutline, lead changes, and biggest mover
 - a timeline scrubber for completed games
-- a bracket picks matrix with a round filter
+- a bracket picks matrix with a multi-round filter that includes future rounds
 - CSV export for the currently visible picks table
 - recent groups remembered in `localStorage`
 - current still-alive paths using ESPN possible max

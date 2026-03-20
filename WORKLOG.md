@@ -2,6 +2,8 @@
 
 ## 2026-03-20
 
+- Switched the picks matrix to use ESPN's full propositions catalog, so the round filter now exposes all six rounds and supports arbitrary multi-round combinations even before later games tip.
+- Tightened the future-round picks table headers so later rounds show matchup labels plus possible-team counts instead of dumping every potential team into one column header.
 - Tightened the app's visual direction with a darker hero treatment, stronger card surfaces, cleaner legend chips, and warmer chart and table panels so the page reads less like a generic dashboard.
 - Added a short feature-pill row in the hero to give the landing area more structure without changing the app flow.
 - Validated the styling pass against the live SportsCenter example in headless Chrome with fresh desktop and mobile screenshots plus a ready-state DOM check.

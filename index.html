@@ -262,12 +262,17 @@
               </div>
 
               <div class="card__actions">
-                <label class="field field--inline">
+                <div class="field field--inline">
                   <span class="field__label">Round</span>
-                  <select id="picks-round-select" class="field__input field__select">
-                    <option value="all">All rounds</option>
-                  </select>
-                </label>
+                  <details id="picks-round-filter" class="round-filter">
+                    <summary id="picks-round-summary" class="field__input round-filter__summary">
+                      All rounds
+                    </summary>
+                    <div id="picks-round-options" class="round-filter__menu">
+                      <p class="round-filter__empty">Load a group to choose rounds.</p>
+                    </div>
+                  </details>
+                </div>
                 <button id="download-csv-button" class="button button--secondary" type="button">
                   Download CSV
                 </button>

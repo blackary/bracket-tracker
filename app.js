@@ -39,7 +39,7 @@ const state = {
   exportSheetUrl: null,
   loading: false,
   metric: METRIC_POINTS,
-  picksRound: "all",
+  picksRoundIds: [],
   season: getDefaultSeason(),
   recentGroups: loadRecentGroups(),
   rawInput: "",
@@ -66,7 +66,9 @@ const dom = {
   metricButtons: Array.from(document.querySelectorAll("[data-metric]")),
   outlookPanel: document.getElementById("outlook-panel"),
   picksPanel: document.getElementById("picks-panel"),
-  picksRoundSelect: document.getElementById("picks-round-select"),
+  picksRoundFilter: document.getElementById("picks-round-filter"),
+  picksRoundOptions: document.getElementById("picks-round-options"),
+  picksRoundSummary: document.getElementById("picks-round-summary"),
   picksSummary: document.getElementById("picks-summary"),
   recentGroupsSelect: document.getElementById("recent-groups-select"),
   sampleButton: document.getElementById("sample-button"),
@@ -319,6 +321,16 @@ async function fetchChallenge(season) {
   return response.data;
 }
 
+async function fetchPropositions(challengeId) {
+  const response = await fetchJson(`/propositions/`, {
+    challengeId,
+    platform: "chui",
+    view: "chui_default"
+  });
+
+  return Array.isArray(response.data) ? response.data : response.data?.propositions || response.data?.items || [];
+}
+
 async function fetchGroupPage(challengeId, groupId, offset = 0, limit = MAX_PAGE_SIZE) {
   const filter = buildFilter({
     filterSortId: { value: 0 },
@@ -482,6 +494,166 @@ function normalizePropositions(challenge) {
     .sort(sortByDateAndDisplayOrder);
 }
 
+function buildTeamByOutcomeId(challenge) {
+  const teamByOutcomeId = new Map();
+
+  (challenge.propositions || []).forEach(proposition => {
+    (proposition.possibleOutcomes || []).forEach(outcome => {
+      if (!outcome?.id || teamByOutcomeId.has(outcome.id)) {
+        return;
+      }
+
+      teamByOutcomeId.set(outcome.id, {
+        abbrev: outcome.abbrev,
+        id: outcome.id,
+        name: outcome.name,
+        seed: outcome.regionSeed
+      });
+    });
+  });
+
+  return teamByOutcomeId;
+}
+
+function buildRounds(challenge, visiblePropositions) {
+  const visibleCountByRoundId = visiblePropositions.reduce((result, proposition) => {
+    if (proposition.scoringPeriodId > 0) {
+      result.set(proposition.scoringPeriodId, (result.get(proposition.scoringPeriodId) || 0) + 1);
+    }
+
+    return result;
+  }, new Map());
+
+  return (challenge.scoringPeriods || [])
+    .filter(period => Number(period.id) > 0)
+    .sort((left, right) => left.id - right.id)
+    .map(period => ({
+      abbrev: period.abbrev || `R${period.id}`,
+      gameCount: visibleCountByRoundId.get(period.id) || 0,
+      id: period.id,
+      label: period.label || `Round ${period.id}`,
+      startDate: period.startDate || period.firstPropositionLockDate || 0,
+      subLabel: period.subLabel || ""
+    }));
+}
+
+function buildRoundGameCounts(rounds, totalPickCount, visiblePropositions) {
+  const visibleCountByRoundId = visiblePropositions.reduce((result, proposition) => {
+    if (proposition.scoringPeriodId > 0) {
+      result.set(proposition.scoringPeriodId, (result.get(proposition.scoringPeriodId) || 0) + 1);
+    }
+
+    return result;
+  }, new Map());
+  const counts = rounds.map(round => visibleCountByRoundId.get(round.id) || 0);
+  const assigned = counts.reduce((sum, count) => sum + count, 0);
+  let remaining = Math.max(totalPickCount - assigned, 0);
+  const missingRoundIndexes = counts.flatMap((count, index) => (count ? [] : [index]));
+
+  if (!remaining || !missingRoundIndexes.length) {
+    return counts;
+  }
+
+  const geometricGuess = Array.from({ length: missingRoundIndexes.length }, (_, index) => 2 ** (missingRoundIndexes.length - index - 1));
+
+  if (geometricGuess.reduce((sum, count) => sum + count, 0) === remaining) {
+    missingRoundIndexes.forEach((roundIndex, guessIndex) => {
+      counts[roundIndex] = geometricGuess[guessIndex];
+    });
+
+    return counts;
+  }
+
+  missingRoundIndexes.forEach((roundIndex, missingIndex) => {
+    const roundsLeft = missingRoundIndexes.length - missingIndex;
+    const nextCount = roundsLeft === 1 ? remaining : Math.max(1, Math.floor(remaining / 2));
+
+    counts[roundIndex] = nextCount;
+    remaining -= nextCount;
+  });
+
+  return counts;
+}
+
+function buildPropositionCatalog(challenge, groupEntries) {
+  const visiblePropositions = normalizePropositions(challenge).filter(proposition => proposition.scoringPeriodId > 0);
+  const propositionById = new Map(visiblePropositions.map(proposition => [proposition.id, proposition]));
+  const teamByOutcomeId = buildTeamByOutcomeId(challenge);
+  const referenceEntry = [...(groupEntries || [])].sort(
+    (left, right) => (right.picks?.length || 0) - (left.picks?.length || 0)
+  )[0];
+  const orderedPickIds = (referenceEntry?.picks || []).map(pick => pick.propositionId).filter(Boolean);
+  const rounds = buildRounds(challenge, visiblePropositions);
+  const roundGameCounts = buildRoundGameCounts(rounds, orderedPickIds.length, visiblePropositions);
+
+  if (!orderedPickIds.length) {
+    return {
+      propositions: visiblePropositions,
+      rounds: rounds.map((round, index) => ({
+        ...round,
+        gameCount: roundGameCounts[index] || round.gameCount || 0
+      })),
+      teamByOutcomeId
+    };
+  }
+
+  const propositions = [];
+  const seenIds = new Set();
+  let pickIndex = 0;
+
+  rounds.forEach((round, roundIndex) => {
+    const gameCount = roundGameCounts[roundIndex] || 0;
+
+    for (let gameIndex = 0; gameIndex < gameCount && pickIndex < orderedPickIds.length; gameIndex += 1, pickIndex += 1) {
+      const propositionId = orderedPickIds[pickIndex];
+      const knownProposition = propositionById.get(propositionId);
+
+      if (knownProposition) {
+        propositions.push({
+          ...knownProposition,
+          date: knownProposition.date || round.startDate || 0,
+          roundAbbrev: round.abbrev,
+          roundLabel: round.label,
+          scoringPeriodId: round.id
+        });
+        seenIds.add(propositionId);
+        continue;
+      }
+
+      propositions.push({
+        actualOutcomeIds: [],
+        date: round.startDate || 0,
+        displayOrder: gameIndex + 1,
+        gameUrl: "",
+        id: propositionId,
+        name: `Game ${gameIndex + 1}`,
+        roundAbbrev: round.abbrev,
+        roundLabel: round.label,
+        scoringPeriodId: round.id,
+        status: "PENDING",
+        teams: []
+      });
+      seenIds.add(propositionId);
+    }
+  });
+
+  visiblePropositions
+    .filter(proposition => !seenIds.has(proposition.id))
+    .sort(sortByDateAndDisplayOrder)
+    .forEach(proposition => {
+      propositions.push(proposition);
+    });
+
+  return {
+    propositions,
+    rounds: rounds.map((round, index) => ({
+      ...round,
+      gameCount: roundGameCounts[index] || round.gameCount || 0
+    })),
+    teamByOutcomeId
+  };
+}
+
 function normalizeForecastMap(forecastEntries) {
   const map = new Map();
 
@@ -584,7 +756,9 @@ function buildModel(challenge, groupResponse, forecastResponse) {
     ])
   );
 
-  const propositions = normalizePropositions(challenge);
+  const propositions = normalizePropositions(challenge).filter(proposition => proposition.scoringPeriodId > 0);
+  const propositionCatalog = buildPropositionCatalog(challenge, groupResponse.entries);
+  const pickPropositions = propositionCatalog.propositions;
   const completedProps = propositions.filter(proposition => proposition.status === "COMPLETE");
   const currentLeaderScore = groupResponse.entries.reduce(
     (maxScore, entry) => Math.max(maxScore, entry.score?.overallScore || 0),
@@ -592,18 +766,6 @@ function buildModel(challenge, groupResponse, forecastResponse) {
   );
   const forecastMap = normalizeForecastMap(forecastResponse.available ? forecastResponse.entries : []);
   const entries = buildEntryModels(groupResponse.entries, completedProps, pointValueByPeriod, forecastMap, currentLeaderScore);
-  const rounds = propositions.reduce((result, proposition) => {
-    if (!result.some(round => round.id === proposition.scoringPeriodId)) {
-      result.push({
-        abbrev: proposition.roundAbbrev,
-        id: proposition.scoringPeriodId,
-        label: proposition.roundLabel
-      });
-    }
-
-    return result;
-  }, []);
-
   const model = {
     challenge: {
       currentRound: challenge.currentScoringPeriod?.label || "",
@@ -630,9 +792,11 @@ function buildModel(challenge, groupResponse, forecastResponse) {
       requestedEntries: groupResponse.requestedEntries || groupResponse.entries.length,
       size: groupResponse.size || groupResponse.entries.length
     },
+    pickPropositions,
     pointValueByPeriod,
     propositions,
-    rounds
+    rounds: propositionCatalog.rounds,
+    teamByOutcomeId: propositionCatalog.teamByOutcomeId
   };
 
   model.colorByEntryId = buildChartColorMap(model);
@@ -799,6 +963,16 @@ function formatCompactNumber(value) {
   }).format(value);
 }
 
+function formatGameCount(value) {
+  const count = Number(value) || 0;
+  return `${count} game${count === 1 ? "" : "s"}`;
+}
+
+function formatTeamCount(value) {
+  const count = Number(value) || 0;
+  return `${count} team${count === 1 ? "" : "s"}`;
+}
+
 function getLargeGroupNote(model) {
   if (!model.group.limited) {
     return "";
@@ -830,6 +1004,22 @@ function truncateLabel(value, maxLength = 20) {
   }
 
   return `${normalized.slice(0, Math.max(maxLength - 1, 1))}…`;
+}
+
+function getPicksHeaderDetails(proposition) {
+  const namedTeams = proposition.teams.filter(team => team?.abbrev || team?.name);
+
+  if (namedTeams.length === 2) {
+    return {
+      meta: formatShortDate(proposition.date),
+      title: namedTeams.map(team => team.abbrev || team.name).join(" / ")
+    };
+  }
+
+  return {
+    meta: `${formatTeamCount(namedTeams.length)} possible • ${formatShortDate(proposition.date)}`,
+    title: proposition.name
+  };
 }
 
 function formatMetricDisplay(value, metric) {
@@ -1137,26 +1327,55 @@ function syncTimelineScrubber(model, snapshotIndex) {
   }).join("");
 }
 
+function getSelectedRounds(model) {
+  if (!model) {
+    return [];
+  }
+
+  const allRoundIds = model.rounds.map(round => String(round.id));
+  const selectedRoundIds = [...new Set((state.picksRoundIds || []).map(String))].filter(roundId => allRoundIds.includes(roundId));
+
+  if (!selectedRoundIds.length || selectedRoundIds.length >= allRoundIds.length) {
+    state.picksRoundIds = allRoundIds;
+    return model.rounds;
+  }
+
+  state.picksRoundIds = selectedRoundIds;
+  return model.rounds.filter(round => selectedRoundIds.includes(String(round.id)));
+}
+
+function getRoundSelectionSummary(model) {
+  if (!model || !model.rounds.length) {
+    return "All rounds";
+  }
+
+  const selectedRounds = getSelectedRounds(model);
+
+  if (selectedRounds.length === model.rounds.length) {
+    return "All rounds";
+  }
+
+  if (selectedRounds.length === 1) {
+    return selectedRounds[0].label;
+  }
+
+  if (selectedRounds.length === 2) {
+    return `${selectedRounds[0].abbrev} + ${selectedRounds[1].abbrev}`;
+  }
+
+  return `${selectedRounds.length} rounds selected`;
+}
+
 function getPicksPropositions(model) {
   if (!model) {
     return [];
   }
 
-  if (state.picksRound === "all") {
-    return model.propositions;
-  }
-
-  const filtered = model.propositions.filter(proposition => String(proposition.scoringPeriodId) === state.picksRound);
-
-  if (filtered.length) {
-    return filtered;
-  }
-
-  state.picksRound = "all";
-  return model.propositions;
+  const selectedRoundIds = new Set(getSelectedRounds(model).map(round => String(round.id)));
+  return model.pickPropositions.filter(proposition => selectedRoundIds.has(String(proposition.scoringPeriodId)));
 }
 
-function getPickState(entry, proposition) {
+function getPickState(model, entry, proposition) {
   const pick = entry.picksByPropositionId.get(proposition.id);
   const pickedOutcome = pick?.outcomesPicked?.[0];
 
@@ -1170,7 +1389,7 @@ function getPickState(entry, proposition) {
     };
   }
 
-  const team = proposition.teams.find(candidate => candidate.id === pickedOutcome.outcomeId);
+  const team = proposition.teams.find(candidate => candidate.id === pickedOutcome.outcomeId) || model.teamByOutcomeId.get(pickedOutcome.outcomeId);
   const label = team?.abbrev || team?.name || "Pick";
   const status = pickedOutcome.result || "UNDECIDED";
   let cssClass = "pick-chip--undecided";
@@ -1191,32 +1410,50 @@ function getPickState(entry, proposition) {
 }
 
 function syncPicksControls(model) {
+  if (!dom.picksRoundFilter || !dom.picksRoundSummary || !dom.picksRoundOptions) {
+    return;
+  }
+
   if (!model) {
-    dom.picksRoundSelect.innerHTML = '<option value="all">All rounds</option>';
-    dom.picksRoundSelect.disabled = true;
+    dom.picksRoundFilter.open = false;
+    dom.picksRoundSummary.textContent = "All rounds";
+    dom.picksRoundSummary.setAttribute("aria-disabled", "true");
+    dom.picksRoundOptions.innerHTML = '<p class="round-filter__empty">Load a group to choose rounds.</p>';
     dom.downloadCsvButton.disabled = true;
     return;
   }
 
-  const validRound = state.picksRound === "all" || model.rounds.some(round => String(round.id) === state.picksRound);
+  const selectedRounds = getSelectedRounds(model);
+  const selectedRoundIdSet = new Set(selectedRounds.map(round => String(round.id)));
 
-  if (!validRound) {
-    state.picksRound = "all";
-  }
-
-  dom.picksRoundSelect.innerHTML = `
-    <option value="all">All rounds</option>
-    ${model.rounds
-      .map(
-        round => `
-          <option value="${escapeHtml(round.id)}"${state.picksRound === String(round.id) ? " selected" : ""}>
-            ${escapeHtml(round.label)}
-          </option>
-        `
-      )
-      .join("")}
+  dom.picksRoundSummary.textContent = getRoundSelectionSummary(model);
+  dom.picksRoundSummary.removeAttribute("aria-disabled");
+  dom.picksRoundOptions.innerHTML = `
+    <div class="round-filter__actions">
+      <button class="round-filter__action" type="button" data-round-action="all">All rounds</button>
+    </div>
+    <div class="round-filter__list">
+      ${model.rounds
+        .map(
+          round => `
+            <label class="round-filter__option">
+              <input
+                class="round-filter__checkbox"
+                type="checkbox"
+                value="${escapeAttribute(round.id)}"
+                data-round-id="${escapeAttribute(round.id)}"
+                ${selectedRoundIdSet.has(String(round.id)) ? "checked" : ""}
+              />
+              <span class="round-filter__option-copy">
+                <span class="round-filter__option-label">${escapeHtml(round.label)}</span>
+                <span class="round-filter__option-meta">${escapeHtml(`${formatGameCount(round.gameCount)}${round.subLabel ? ` • ${round.subLabel}` : ""}`)}</span>
+              </span>
+            </label>
+          `
+        )
+        .join("")}
+    </div>
   `;
-  dom.picksRoundSelect.disabled = false;
   dom.downloadCsvButton.disabled = false;
 }
 
@@ -1833,13 +2070,16 @@ function renderPicksTable(model) {
 
   const propositions = getPicksPropositions(model);
   const currentStandings = getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS);
+  const selectedRounds = getSelectedRounds(model);
   const roundLabel =
-    state.picksRound === "all"
+    selectedRounds.length === model.rounds.length
       ? `all ${model.rounds.length} rounds`
-      : model.rounds.find(round => String(round.id) === state.picksRound)?.label || "selected round";
+      : selectedRounds.length === 1
+        ? selectedRounds[0].label
+        : `${selectedRounds.length} selected rounds`;
   const largeGroupNote = model.group.limited ? ` ${getLargeGroupNote(model)}` : "";
 
-  dom.picksSummary.textContent = `Showing ${propositions.length} games from ${roundLabel}. CSV export uses this same filter.${largeGroupNote}`;
+  dom.picksSummary.textContent = `Showing ${formatGameCount(propositions.length)} from ${roundLabel}. CSV export uses this same filter.${largeGroupNote}`;
 
   if (!propositions.length) {
     dom.picksPanel.className = "table-wrap table-wrap--empty";
@@ -1856,14 +2096,14 @@ function renderPicksTable(model) {
           <th class="picks-table__sticky picks-table__sticky--entry">Entry</th>
           ${propositions
             .map(proposition => {
-              const teamsLabel = proposition.teams.map(team => team.abbrev || team.name).join(" / ");
+              const header = getPicksHeaderDetails(proposition);
 
               return `
                 <th>
                   <div class="picks-table__game">
                     <span>${escapeHtml(proposition.roundAbbrev)}</span>
-                    <strong>${escapeHtml(teamsLabel)}</strong>
-                    <span>${escapeHtml(formatShortDate(proposition.date))}</span>
+                    <strong>${escapeHtml(header.title)}</strong>
+                    <span>${escapeHtml(header.meta)}</span>
                   </div>
                 </th>
               `;
@@ -1885,7 +2125,7 @@ function renderPicksTable(model) {
                 </td>
                 ${propositions
                   .map(proposition => {
-                    const pickState = getPickState(entry, proposition);
+                    const pickState = getPickState(model, entry, proposition);
 
                     return `
                       <td>
@@ -1985,8 +2225,17 @@ function renderEmptyState() {
   dom.summaryMover.textContent = "-";
   dom.summaryAlive.textContent = "-";
   syncTimelineScrubber(null, 0);
-  dom.picksRoundSelect.innerHTML = '<option value="all">All rounds</option>';
-  dom.picksRoundSelect.disabled = true;
+  state.picksRoundIds = [];
+  if (dom.picksRoundFilter) {
+    dom.picksRoundFilter.open = false;
+  }
+  if (dom.picksRoundSummary) {
+    dom.picksRoundSummary.textContent = "All rounds";
+    dom.picksRoundSummary.setAttribute("aria-disabled", "true");
+  }
+  if (dom.picksRoundOptions) {
+    dom.picksRoundOptions.innerHTML = '<p class="round-filter__empty">Load a group to choose rounds.</p>';
+  }
   dom.downloadCsvButton.disabled = true;
 }
 
@@ -2038,15 +2287,25 @@ async function loadGroup(rawInput, rawSeason) {
   state.loading = true;
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
-  state.picksRound = "all";
+  state.picksRoundIds = [];
   setStatus("Loading ESPN challenge and group data…", "loading");
 
   try {
     const challenge = await fetchChallenge(lookup.season);
-    const group = await fetchAllGroupEntries(challenge.id, lookup.groupId);
+    const [group, propositionsResult] = await Promise.all([
+      fetchAllGroupEntries(challenge.id, lookup.groupId),
+      fetchPropositions(challenge.id).catch(error => {
+        console.warn("Failed to fetch full proposition catalog.", error);
+        return [];
+      })
+    ]);
     const forecast = await fetchForecast(challenge.id, lookup.groupId, group.entries.length);
+    const hydratedChallenge = {
+      ...challenge,
+      propositions: propositionsResult.length ? propositionsResult : challenge.propositions
+    };
 
-    state.model = buildModel(challenge, group, forecast);
+    state.model = buildModel(hydratedChallenge, group, forecast);
     state.selectedIndex = state.model.completedProps.length;
     updateUrl(lookup.groupId, lookup.season);
     rememberRecentGroup(state.model);
@@ -2102,7 +2361,7 @@ function buildPicksCsv(model) {
       entry.memberName,
       entry.currentPoints,
       entry.currentAccuracyPct.toFixed(1),
-      ...propositions.map(proposition => getPickState(entry, proposition).csvValue)
+      ...propositions.map(proposition => getPickState(model, entry, proposition).csvValue)
     ];
   });
 
@@ -2285,7 +2544,11 @@ async function downloadCurrentPicksCsv() {
 
   const csv = buildPicksCsv(state.model);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const roundSegment = state.picksRound === "all" ? "all-rounds" : `round-${state.picksRound}`;
+  const selectedRounds = getSelectedRounds(state.model);
+  const roundSegment =
+    selectedRounds.length === state.model.rounds.length
+      ? "all-rounds"
+      : `rounds-${selectedRounds.map(round => round.id).join("-")}`;
   const fileName = `${sanitizeFileName(state.model.group.name)}-${roundSegment}-picks.csv`;
   const result = await saveBlob(blob, fileName, `${state.model.group.name} picks CSV`);
 
@@ -2350,8 +2613,28 @@ function handleChartModeToggle(event) {
 }
 
 function handlePicksRoundChange(event) {
-  state.picksRound = event.target.value || "all";
+  const checkbox = event.target.closest("[data-round-id]");
+
+  if (!checkbox || !state.model) {
+    return;
+  }
+
+  const checkedIds = Array.from(dom.picksRoundOptions.querySelectorAll("[data-round-id]:checked")).map(input => String(input.value));
+  state.picksRoundIds = checkedIds.length ? checkedIds : state.model.rounds.map(round => String(round.id));
   renderPicksTable(state.model);
+}
+
+function handlePicksRoundFilterClick(event) {
+  const actionButton = event.target.closest("[data-round-action]");
+
+  if (!actionButton || !state.model) {
+    return;
+  }
+
+  if (actionButton.dataset.roundAction === "all") {
+    state.picksRoundIds = state.model.rounds.map(round => String(round.id));
+    renderPicksTable(state.model);
+  }
 }
 
 function setSelectedIndex(nextIndex) {
@@ -2465,7 +2748,8 @@ function init() {
   dom.recentGroupsSelect?.addEventListener("change", handleRecentGroupSelect);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
   dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
-  dom.picksRoundSelect.addEventListener("change", handlePicksRoundChange);
+  dom.picksRoundFilter?.addEventListener("change", handlePicksRoundChange);
+  dom.picksRoundFilter?.addEventListener("click", handlePicksRoundFilterClick);
   dom.downloadCsvButton.addEventListener("click", downloadCurrentPicksCsv);
   dom.timelineRange.addEventListener("input", handleTimelineInput);
   dom.timelineMarkers.addEventListener("click", handleTimelineMarkerClick);
