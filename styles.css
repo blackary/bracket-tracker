@@ -314,6 +314,21 @@ select {
   line-height: 1.2;
 }
 
+.control-stack {
+  display: grid;
+  gap: 0.7rem;
+  justify-items: end;
+}
+
+.control-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.control-group .field__label {
+  margin: 0;
+}
+
 .segmented-control {
   display: inline-flex;
   padding: 0.25rem;
@@ -885,5 +900,10 @@ select {
 
   .field--season {
     max-width: none;
+  }
+
+  .control-stack {
+    width: 100%;
+    justify-items: stretch;
   }
 }

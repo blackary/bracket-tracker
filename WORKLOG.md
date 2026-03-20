@@ -8,3 +8,4 @@
 - Added GitHub Pages deployment plumbing so pushes to `main` can publish the site.
 - Reworked the leader chart labels to use a separate callout lane and richer legend metadata so crowded names are easier to read.
 - Replaced the original hard-coded sample group with ESPN's featured SportsCenter public group.
+- Changed the chart to follow the current top 10 by ESPN points and added a chart-view toggle for rank vs point totals.

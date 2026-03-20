@@ -5,9 +5,12 @@ const SAMPLE_GROUP = {
   season: 2026
 };
 const MAX_PAGE_SIZE = 200;
-const MAX_LEADER_LINES = 8;
+const MAX_CHART_LINES = 10;
+const MAX_CHART_CALLOUTS = 4;
 const METRIC_POINTS = "points";
 const METRIC_ACCURACY = "accuracy";
+const CHART_MODE_RANK = "rank";
+const CHART_MODE_POINTS = "points";
 const LEADER_COLORS = [
   "#ba3a1b",
   "#204e7b",
@@ -16,10 +19,13 @@ const LEADER_COLORS = [
   "#7b5a2e",
   "#b05f2b",
   "#4f6474",
-  "#8f4130"
+  "#8f4130",
+  "#5e7d2b",
+  "#845f9c"
 ];
 
 const state = {
+  chartMode: CHART_MODE_RANK,
   loading: false,
   metric: METRIC_POINTS,
   picksRound: "all",
@@ -31,6 +37,7 @@ const state = {
 
 const dom = {
   chartPanel: document.getElementById("chart-panel"),
+  chartModeButtons: Array.from(document.querySelectorAll("[data-chart-mode]")),
   detailsPanel: document.getElementById("details-panel"),
   downloadCsvButton: document.getElementById("download-csv-button"),
   form: document.getElementById("group-form"),
@@ -564,36 +571,11 @@ function getSnapshotStandings(model, index, metric) {
   });
 }
 
-function getLeaderIdsBySnapshot(model, metric) {
-  const counts = new Map();
-  const totalSnapshots = model.completedProps.length + 1;
-
-  for (let index = 0; index < totalSnapshots; index += 1) {
-    const standings = getSnapshotStandings(model, index, metric);
-
-    if (!standings.length) {
-      continue;
-    }
-
-    const leadValue = metricValue(standings[0], metric);
-
-    standings
-      .filter(entry => valuesMatch(metricValue(entry, metric), leadValue, metric))
-      .forEach(entry => {
-        counts.set(entry.id, (counts.get(entry.id) || 0) + 1);
-      });
-  }
-
-  let leaderIds = [...counts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, MAX_LEADER_LINES)
-    .map(([id]) => id);
-
-  if (!leaderIds.length) {
-    leaderIds = model.entries.slice(0, Math.min(model.entries.length, MAX_LEADER_LINES)).map(entry => entry.id);
-  }
-
-  return leaderIds;
+function getChartEntries(model) {
+  return getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS).slice(
+    0,
+    Math.min(model.entries.length, MAX_CHART_LINES)
+  );
 }
 
 function getLeaderSummary(standings, metric) {
@@ -656,6 +638,18 @@ function formatMetricDisplay(value, metric) {
   return metric === METRIC_ACCURACY ? `${value.toFixed(1)}%` : `${value} pts`;
 }
 
+function formatRankDisplay(rank) {
+  return rank ? `#${rank}` : "-";
+}
+
+function formatChartValueDisplay(snapshotEntry, chartMode) {
+  if (!snapshotEntry) {
+    return "-";
+  }
+
+  return chartMode === CHART_MODE_RANK ? formatRankDisplay(snapshotEntry.rank) : `${snapshotEntry.snapshot.points} pts`;
+}
+
 function layoutChartCallouts(callouts, minY, maxY, gap) {
   if (!callouts.length) {
     return [];
@@ -682,6 +676,23 @@ function layoutChartCallouts(callouts, minY, maxY, gap) {
   }
 
   return laidOut;
+}
+
+function buildChartPath(points) {
+  let path = "";
+  let drawing = false;
+
+  points.forEach(point => {
+    if (!point) {
+      drawing = false;
+      return;
+    }
+
+    path += `${drawing ? "L" : "M"}${point.x},${point.y} `;
+    drawing = true;
+  });
+
+  return path.trim();
 }
 
 function getPicksPropositions(model) {
@@ -868,27 +879,28 @@ function renderTimeline(model, standings, snapshotIndex) {
 }
 
 function renderChart(model, selectedIndex) {
-  const leaderIds = getLeaderIdsBySnapshot(model, state.metric);
   const totalSnapshots = model.completedProps.length + 1;
+  const chartEntries = getChartEntries(model);
 
-  if (!leaderIds.length || totalSnapshots <= 1) {
+  if (!chartEntries.length || totalSnapshots <= 1) {
     dom.chartPanel.className = "chart-panel chart-panel--empty";
-    dom.chartPanel.textContent = "Load a group with completed games to render the leader graph.";
+    dom.chartPanel.textContent = "Load a group with completed games to render the top-10 chart.";
     dom.leaderLegend.innerHTML = "";
     return;
   }
 
-  const leaderEntries = leaderIds
-    .map(id => model.entries.find(entry => entry.id === id))
-    .filter(Boolean)
+  const chartEntryIds = new Set(chartEntries.map(entry => entry.id));
+  const pointsStandingsBySnapshot = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
+    const standings = getSnapshotStandings(model, snapshotIndex, METRIC_POINTS);
+
+    return new Map(standings.filter(entry => chartEntryIds.has(entry.id)).map(entry => [entry.id, entry]));
+  });
+  const selectedPointsStandings = pointsStandingsBySnapshot[selectedIndex];
+  const leaderEntries = chartEntries
     .map((entry, index) => ({
       color: LEADER_COLORS[index % LEADER_COLORS.length],
       entry
     }));
-  const legendStandings = getSnapshotStandings(model, selectedIndex, state.metric);
-  const legendDetailsById = new Map(
-    legendStandings.map(entry => [entry.id, { rank: entry.rank, valueText: formatMetricDisplay(metricValue(entry, state.metric), state.metric) }])
-  );
 
   const width = 980;
   const height = 360;
@@ -896,46 +908,54 @@ function renderChart(model, selectedIndex) {
   const plotRight = width - padding.right;
   const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
-  const values = [];
-
-  leaderEntries.forEach(({ entry }) => {
-    entry.series.forEach(snapshot => {
-      values.push(state.metric === METRIC_ACCURACY ? snapshot.accuracyPct : snapshot.points);
-    });
-  });
-
-  const maxValue = state.metric === METRIC_ACCURACY ? 100 : Math.max(...values, 1);
-  const minValue = 0;
+  const maxPoints = Math.max(...leaderEntries.flatMap(({ entry }) => entry.series.map(snapshot => snapshot.points)), 1);
   const xStep = totalSnapshots > 1 ? chartWidth / (totalSnapshots - 1) : chartWidth;
-  const yFor = value => {
-    const ratio = (value - minValue) / Math.max(maxValue - minValue, 1);
-    return padding.top + chartHeight - ratio * chartHeight;
-  };
   const xFor = index => padding.left + index * xStep;
-
-  const gridValues = state.metric === METRIC_ACCURACY ? [0, 25, 50, 75, 100] : buildPointTicks(maxValue);
+  const gridValues = state.chartMode === CHART_MODE_RANK ? [1, 3, 5, 7, 10] : buildPointTicks(maxPoints);
+  const yFor =
+    state.chartMode === CHART_MODE_RANK
+      ? value => padding.top + ((value - 1) / Math.max(MAX_CHART_LINES - 1, 1)) * chartHeight
+      : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
   const selectionX = xFor(selectedIndex);
-  const labeledLeaderCount = Math.min(leaderEntries.length, 5);
-  const callouts = layoutChartCallouts(
-    leaderEntries.slice(0, labeledLeaderCount).map(({ entry, color }) => {
-      const currentSnapshot = entry.series[selectedIndex];
-      const currentValue = state.metric === METRIC_ACCURACY ? currentSnapshot.accuracyPct : currentSnapshot.points;
-      const currentX = xFor(selectedIndex);
-      const currentY = yFor(currentValue);
-      const shortLabel = truncateLabel(entry.name, 20);
-      const valueText = formatMetricDisplay(currentValue, state.metric);
+  const calloutCandidates = leaderEntries
+    .map(({ entry, color }) => {
+      const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+
+      if (!selectedSnapshotEntry) {
+        return null;
+      }
+
+      const selectedValue =
+        state.chartMode === CHART_MODE_RANK
+          ? selectedSnapshotEntry.rank <= MAX_CHART_LINES
+            ? selectedSnapshotEntry.rank
+            : null
+          : selectedSnapshotEntry.snapshot.points;
+
+      if (selectedValue === null) {
+        return null;
+      }
+
+      const shortLabel = truncateLabel(entry.name, 18);
+      const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode);
 
       return {
         color,
-        currentX,
-        currentY,
+        currentX: xFor(selectedIndex),
+        currentY: yFor(selectedValue),
         entryId: entry.id,
         label: shortLabel,
-        labelWidth: Math.max(122, Math.min(184, Math.max(shortLabel.length * 7.3, valueText.length * 7) + 28)),
-        targetY: currentY,
+        labelWidth: Math.max(126, Math.min(190, Math.max(shortLabel.length * 7.6, valueText.length * 7) + 32)),
+        sortValue: state.chartMode === CHART_MODE_RANK ? selectedSnapshotEntry.rank : -selectedSnapshotEntry.snapshot.points,
+        targetY: yFor(selectedValue),
         valueText
       };
-    }),
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.sortValue - right.sortValue)
+    .slice(0, MAX_CHART_CALLOUTS);
+  const callouts = layoutChartCallouts(
+    calloutCandidates,
     padding.top + 18,
     height - padding.bottom - 18,
     42
@@ -980,30 +1000,54 @@ function renderChart(model, selectedIndex) {
             return `
               <line class="chart-grid-line" x1="${padding.left}" x2="${plotRight}" y1="${y}" y2="${y}" />
               <text class="chart-axis-label" x="${padding.left - 10}" y="${y + 4}" text-anchor="end">${escapeHtml(
-                state.metric === METRIC_ACCURACY ? `${value}%` : String(value)
+                state.chartMode === CHART_MODE_RANK ? formatRankDisplay(value) : String(value)
               )}</text>
             `;
           })
           .join("")}
         <line class="chart-selection-line" x1="${selectionX}" x2="${selectionX}" y1="${padding.top}" y2="${height - padding.bottom}" />
         ${leaderEntries
-          .map(({ entry, color }, index) => {
-            const path = entry.series
-              .map((snapshot, snapshotIndex) => {
-                const x = xFor(snapshotIndex);
-                const y = yFor(state.metric === METRIC_ACCURACY ? snapshot.accuracyPct : snapshot.points);
+          .map(({ entry, color }) => {
+            const path = buildChartPath(
+              Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
+                const snapshotEntry = pointsStandingsBySnapshot[snapshotIndex].get(entry.id);
 
-                return `${snapshotIndex === 0 ? "M" : "L"}${x},${y}`;
+                if (!snapshotEntry) {
+                  return null;
+                }
+
+                if (state.chartMode === CHART_MODE_RANK) {
+                  if (snapshotEntry.rank > MAX_CHART_LINES) {
+                    return null;
+                  }
+
+                  return {
+                    x: xFor(snapshotIndex),
+                    y: yFor(snapshotEntry.rank)
+                  };
+                }
+
+                return {
+                  x: xFor(snapshotIndex),
+                  y: yFor(snapshotEntry.snapshot.points)
+                };
               })
-              .join(" ");
-            const currentSnapshot = entry.series[selectedIndex];
-            const currentValue = state.metric === METRIC_ACCURACY ? currentSnapshot.accuracyPct : currentSnapshot.points;
-            const currentX = xFor(selectedIndex);
-            const currentY = yFor(currentValue);
+            );
+            const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+            const selectedValue =
+              state.chartMode === CHART_MODE_RANK
+                ? selectedSnapshotEntry?.rank <= MAX_CHART_LINES
+                  ? selectedSnapshotEntry.rank
+                  : null
+                : selectedSnapshotEntry?.snapshot.points ?? null;
 
             return `
-              <path class="chart-path ${index >= labeledLeaderCount ? "chart-path--muted" : ""}" d="${path}" stroke="${color}" />
-              <circle class="chart-point" cx="${currentX}" cy="${currentY}" r="5" fill="${color}" />
+              ${path ? `<path class="chart-path" d="${path}" stroke="${color}" />` : ""}
+              ${
+                selectedValue !== null
+                  ? `<circle class="chart-point" cx="${xFor(selectedIndex)}" cy="${yFor(selectedValue)}" r="5" fill="${color}" />`
+                  : ""
+              }
             `;
           })
           .join("")}
@@ -1014,14 +1058,25 @@ function renderChart(model, selectedIndex) {
 
   dom.leaderLegend.innerHTML = leaderEntries
     .map(({ entry, color }) => {
-      const details = legendDetailsById.get(entry.id);
+      const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+      const meta =
+        selectedIndex === model.completedProps.length
+          ? state.chartMode === CHART_MODE_RANK
+            ? `Now ${formatRankDisplay(entry.rank)}`
+            : `Now ${formatRankDisplay(entry.rank)} • ${entry.snapshot.points} pts`
+          : state.chartMode === CHART_MODE_RANK
+            ? `Now ${formatRankDisplay(entry.rank)} • Selected ${formatRankDisplay(selectedSnapshotEntry?.rank)}`
+            : `Now ${formatRankDisplay(entry.rank)} • Selected ${formatChartValueDisplay(
+                selectedSnapshotEntry,
+                CHART_MODE_POINTS
+              )}`;
 
       return `
         <div class="legend__item">
           <span class="legend__dot" style="background:${color}"></span>
           <span class="legend__copy">
             <span class="legend__name">${escapeHtml(entry.name)}</span>
-            <span class="legend__meta">${escapeHtml(details ? `#${details.rank} • ${details.valueText}` : "")}</span>
+            <span class="legend__meta">${escapeHtml(meta)}</span>
           </span>
         </div>
       `
@@ -1295,7 +1350,7 @@ function renderDetails(model) {
 
 function renderEmptyState() {
   dom.chartPanel.className = "chart-panel chart-panel--empty";
-  dom.chartPanel.textContent = "Load a group to render the leader chart.";
+  dom.chartPanel.textContent = "Load a group to render the top-10 chart.";
   dom.leaderLegend.innerHTML = "";
   dom.outlookPanel.className = "outlook-panel outlook-panel--empty";
   dom.outlookPanel.textContent = "Late-round outlook will appear here after a group loads.";
@@ -1330,6 +1385,7 @@ function render() {
   if (!state.model) {
     renderEmptyState();
     syncMetricButtons();
+    syncChartModeButtons();
     return;
   }
 
@@ -1344,11 +1400,20 @@ function render() {
   renderPicksTable(state.model);
   renderDetails(state.model);
   syncMetricButtons();
+  syncChartModeButtons();
 }
 
 function syncMetricButtons() {
   dom.metricButtons.forEach(button => {
     const active = button.dataset.metric === state.metric;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function syncChartModeButtons() {
+  dom.chartModeButtons.forEach(button => {
+    const active = button.dataset.chartMode === state.chartMode;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
@@ -1471,6 +1536,17 @@ function handleMetricToggle(event) {
   render();
 }
 
+function handleChartModeToggle(event) {
+  const button = event.currentTarget;
+
+  if (!button.dataset.chartMode) {
+    return;
+  }
+
+  state.chartMode = button.dataset.chartMode;
+  render();
+}
+
 function handlePicksRoundChange(event) {
   state.picksRound = event.target.value || "all";
   renderPicksTable(state.model);
@@ -1502,6 +1578,7 @@ function init() {
   dom.form.addEventListener("submit", handleSubmit);
   dom.sampleButton.addEventListener("click", handleSampleLoad);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
+  dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
   dom.picksRoundSelect.addEventListener("change", handlePicksRoundChange);
   dom.downloadCsvButton.addEventListener("click", downloadCurrentPicksCsv);
   dom.timelineRange.addEventListener("input", handleTimelineInput);
@@ -1510,6 +1587,7 @@ function init() {
 
   renderEmptyState();
   syncMetricButtons();
+  syncChartModeButtons();
 
   if (lookup.group) {
     loadGroup(lookup.group, lookup.season);

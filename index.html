@@ -99,32 +99,59 @@
           <article class="card card--chart">
             <div class="card__header card__header--split">
               <div>
-                <p class="card__eyebrow">Leader Graph</p>
-                <h2 class="card__title">Who held the top spot over time</h2>
+                <p class="card__eyebrow">Top 10 Graph</p>
+                <h2 class="card__title">How the current top 10 moved over time</h2>
               </div>
 
-              <div id="metric-buttons" class="segmented-control" role="tablist" aria-label="Metric">
-                <button
-                  class="segmented-control__button is-active"
-                  type="button"
-                  data-metric="points"
-                  aria-pressed="true"
-                >
-                  ESPN Points
-                </button>
-                <button
-                  class="segmented-control__button"
-                  type="button"
-                  data-metric="accuracy"
-                  aria-pressed="false"
-                >
-                  Accuracy
-                </button>
+              <div class="control-stack">
+                <div class="control-group">
+                  <span class="field__label">Snapshot Metric</span>
+                  <div id="metric-buttons" class="segmented-control" role="tablist" aria-label="Snapshot metric">
+                    <button
+                      class="segmented-control__button is-active"
+                      type="button"
+                      data-metric="points"
+                      aria-pressed="true"
+                    >
+                      ESPN Points
+                    </button>
+                    <button
+                      class="segmented-control__button"
+                      type="button"
+                      data-metric="accuracy"
+                      aria-pressed="false"
+                    >
+                      Accuracy
+                    </button>
+                  </div>
+                </div>
+
+                <div class="control-group">
+                  <span class="field__label">Chart View</span>
+                  <div id="chart-mode-buttons" class="segmented-control" role="tablist" aria-label="Chart view">
+                    <button
+                      class="segmented-control__button is-active"
+                      type="button"
+                      data-chart-mode="rank"
+                      aria-pressed="true"
+                    >
+                      Top 10 Rank
+                    </button>
+                    <button
+                      class="segmented-control__button"
+                      type="button"
+                      data-chart-mode="points"
+                      aria-pressed="false"
+                    >
+                      Point Total
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div id="chart-panel" class="chart-panel chart-panel--empty">
-              Load a group to render the leader chart.
+              Load a group to render the top-10 chart.
             </div>
             <div id="leader-legend" class="legend"></div>
           </article>
