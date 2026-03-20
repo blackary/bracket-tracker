@@ -180,6 +180,10 @@ select {
   line-height: 1.5;
 }
 
+.export-sheet[hidden] {
+  display: none;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -218,6 +222,80 @@ select {
   border-color: var(--line);
   background: rgba(255, 255, 255, 0.62);
   color: var(--ink);
+}
+
+.export-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 1rem;
+  background: rgba(16, 32, 51, 0.4);
+  backdrop-filter: blur(14px);
+}
+
+.export-sheet__card {
+  width: min(100%, 34rem);
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 250, 242, 0.97);
+  box-shadow: 0 28px 70px rgba(16, 32, 51, 0.24);
+}
+
+.export-sheet__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.export-sheet__close {
+  flex: 0 0 auto;
+}
+
+.export-sheet__preview {
+  min-height: 7rem;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.export-sheet__code {
+  margin: 0;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.export-sheet__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5rem;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.export-sheet__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.export-sheet__button {
+  width: 100%;
 }
 
 .status-banner {
@@ -1206,6 +1284,23 @@ select {
 
   .picks-table__sticky--entry {
     min-width: 12rem;
+  }
+
+  .export-sheet {
+    padding: 0.75rem;
+  }
+
+  .export-sheet__card {
+    padding: 1rem;
+  }
+
+  .export-sheet__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .export-sheet__actions {
+    grid-template-columns: 1fr;
   }
 }
 

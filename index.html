@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f4efe7" />
-    <title>Bracket Time Machine</title>
+    <title>Bracket Tracker</title>
     <meta
       name="description"
       content="Track ESPN Tournament Challenge group leaders over time with a static app."
@@ -22,7 +22,7 @@
       <header class="hero">
         <div class="hero__copy">
           <p class="eyebrow">Static ESPN Group Tracker</p>
-          <h1>Bracket Time Machine</h1>
+          <h1>Bracket Tracker</h1>
           <p class="hero__lede">
             Load a public ESPN Tournament Challenge group, rewind to any
             completed game, compare leaders by ESPN points or pick accuracy,
@@ -61,9 +61,16 @@
               Load Group
             </button>
             <button id="sample-button" class="button button--secondary" type="button">
-              Load SportsCenter
+              Load Example
             </button>
           </div>
+
+          <label class="field">
+            <span class="field__label">Recent groups</span>
+            <select id="recent-groups-select" class="field__input field__select" disabled>
+              <option value="">No recent groups yet</option>
+            </select>
+          </label>
 
           <p class="lookup-card__hint">
             Works against ESPN’s public group and challenge APIs. For local use,
@@ -269,6 +276,25 @@
           </article>
         </section>
       </main>
+    </div>
+
+    <div id="export-sheet" class="export-sheet" hidden>
+      <div class="export-sheet__card" role="dialog" aria-modal="true" aria-labelledby="export-sheet-title">
+        <div class="export-sheet__header">
+          <div>
+            <p class="eyebrow">Mobile Export</p>
+            <h2 id="export-sheet-title" class="card__title">Preparing export</h2>
+          </div>
+          <button id="export-sheet-close" class="button button--ghost export-sheet__close" type="button">
+            Close
+          </button>
+        </div>
+        <p id="export-sheet-note" class="lookup-card__hint">Getting your file ready for this device.</p>
+        <div id="export-sheet-preview" class="export-sheet__preview">
+          <div class="export-sheet__loading">Preparing your export...</div>
+        </div>
+        <div id="export-sheet-actions" class="export-sheet__actions"></div>
+      </div>
     </div>
 
     <script type="module" src="./app.js"></script>

@@ -1,16 +1,19 @@
 const GAMBIT_BASE = "https://gambit-api.fantasy.espn.com/apis/v1";
 const SAMPLE_GROUP = {
   groupId: "6e682872-7e5f-3aa2-84bf-003cb6a630ae",
-  name: "SportsCenter",
+  name: "Example group",
   season: 2026
 };
 const MAX_PAGE_SIZE = 200;
+const MAX_LOADED_ENTRIES = 1000;
+const MAX_RECENT_GROUPS = 8;
 const MAX_CHART_LINES = 10;
 const MAX_CHART_CALLOUTS = 4;
 const METRIC_POINTS = "points";
 const METRIC_ACCURACY = "accuracy";
 const CHART_MODE_RANK = "rank";
 const CHART_MODE_POINTS = "points";
+const RECENT_GROUPS_STORAGE_KEY = "bracket-tracker/recent-groups/v1";
 const LEADER_COLORS = [
   "#ba3a1b",
   "#204e7b",
@@ -21,21 +24,35 @@ const LEADER_COLORS = [
   "#4f6474",
   "#8f4130",
   "#5e7d2b",
-  "#845f9c"
+  "#845f9c",
+  "#2f6f7e",
+  "#a84f61",
+  "#5a6bb0",
+  "#4f8651",
+  "#9a6a2a",
+  "#7f4ba0"
 ];
 
 const state = {
   chartMode: CHART_MODE_RANK,
+  exportSheetUrl: null,
   loading: false,
   metric: METRIC_POINTS,
   picksRound: "all",
   season: getDefaultSeason(),
+  recentGroups: loadRecentGroups(),
   rawInput: "",
   selectedIndex: 0,
   model: null
 };
 
 const dom = {
+  exportSheet: document.getElementById("export-sheet"),
+  exportSheetActions: document.getElementById("export-sheet-actions"),
+  exportSheetClose: document.getElementById("export-sheet-close"),
+  exportSheetNote: document.getElementById("export-sheet-note"),
+  exportSheetPreview: document.getElementById("export-sheet-preview"),
+  exportSheetTitle: document.getElementById("export-sheet-title"),
   chartPanel: document.getElementById("chart-panel"),
   chartScrubber: document.getElementById("chart-scrubber"),
   chartModeButtons: Array.from(document.querySelectorAll("[data-chart-mode]")),
@@ -49,6 +66,7 @@ const dom = {
   picksPanel: document.getElementById("picks-panel"),
   picksRoundSelect: document.getElementById("picks-round-select"),
   picksSummary: document.getElementById("picks-summary"),
+  recentGroupsSelect: document.getElementById("recent-groups-select"),
   sampleButton: document.getElementById("sample-button"),
   seasonInput: document.getElementById("season-input"),
   standingsPanel: document.getElementById("standings-panel"),
@@ -73,6 +91,57 @@ function getDefaultSeason() {
   return new Date().getFullYear();
 }
 
+function loadRecentGroups() {
+  try {
+    const raw = window.localStorage.getItem(RECENT_GROUPS_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map(item => normalizeRecentGroup(item))
+      .filter(Boolean)
+      .slice(0, MAX_RECENT_GROUPS);
+  } catch (error) {
+    return [];
+  }
+}
+
+function normalizeRecentGroup(value) {
+  const groupId = String(value?.groupId || "").trim();
+  const season = Number(value?.season);
+
+  if (!groupId || !Number.isFinite(season)) {
+    return null;
+  }
+
+  return {
+    groupId,
+    name: String(value?.name || groupId).trim() || groupId,
+    season,
+    viewedAt: String(value?.viewedAt || new Date().toISOString())
+  };
+}
+
+function persistRecentGroups() {
+  try {
+    window.localStorage.setItem(RECENT_GROUPS_STORAGE_KEY, JSON.stringify(state.recentGroups));
+  } catch (error) {
+    // Ignore storage failures; the app still works without persistence.
+  }
+}
+
+function makeRecentGroupKey(groupId, season) {
+  return `${season}::${groupId}`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -80,6 +149,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value);
 }
 
 function getLookupFromUrl() {
@@ -133,6 +206,53 @@ function updateUrl(groupId, season) {
   url.searchParams.set("groupId", groupId);
   url.searchParams.set("season", String(season));
   window.history.replaceState({}, "", url);
+}
+
+function rememberRecentGroup(model) {
+  const nextRecord = {
+    groupId: model.group.id,
+    name: model.group.name,
+    season: model.challenge.season,
+    viewedAt: new Date().toISOString()
+  };
+
+  state.recentGroups = [nextRecord, ...state.recentGroups.filter(group => makeRecentGroupKey(group.groupId, group.season) !== makeRecentGroupKey(nextRecord.groupId, nextRecord.season))]
+    .slice(0, MAX_RECENT_GROUPS);
+  persistRecentGroups();
+  renderRecentGroups();
+}
+
+function renderRecentGroups() {
+  if (!dom.recentGroupsSelect) {
+    return;
+  }
+
+  const selectedKey =
+    state.model?.group?.id && state.model?.challenge?.season
+      ? makeRecentGroupKey(state.model.group.id, state.model.challenge.season)
+      : "";
+
+  if (!state.recentGroups.length) {
+    dom.recentGroupsSelect.innerHTML = '<option value="">No recent groups yet</option>';
+    dom.recentGroupsSelect.disabled = true;
+    return;
+  }
+
+  dom.recentGroupsSelect.innerHTML = `
+    <option value="">Recent groups</option>
+    ${state.recentGroups
+      .map(group => {
+        const value = makeRecentGroupKey(group.groupId, group.season);
+        const shortId = group.groupId.slice(0, 8);
+        return `
+          <option value="${escapeHtml(value)}"${value === selectedKey ? " selected" : ""}>
+            ${escapeHtml(group.name)} • ${escapeHtml(group.season)} • ${escapeHtml(shortId)}
+          </option>
+        `;
+      })
+      .join("")}
+  `;
+  dom.recentGroupsSelect.disabled = false;
 }
 
 function setStatus(message, tone = "idle") {
@@ -213,13 +333,15 @@ async function fetchGroupPage(challengeId, groupId, offset = 0, limit = MAX_PAGE
   return response.data;
 }
 
-async function fetchAllGroupEntries(challengeId, groupId) {
+async function fetchAllGroupEntries(challengeId, groupId, maxEntries = MAX_LOADED_ENTRIES) {
   const firstPage = await fetchGroupPage(challengeId, groupId, 0, MAX_PAGE_SIZE);
   const pages = [firstPage];
+  const totalEntries = firstPage.size || firstPage.entries.length;
+  const targetEntries = Math.min(totalEntries, maxEntries);
   let fetched = firstPage.entries.length;
 
-  while (fetched < firstPage.size) {
-    const page = await fetchGroupPage(challengeId, groupId, fetched, MAX_PAGE_SIZE);
+  while (fetched < targetEntries) {
+    const page = await fetchGroupPage(challengeId, groupId, fetched, Math.min(MAX_PAGE_SIZE, targetEntries - fetched));
 
     if (!page.entries.length) {
       break;
@@ -229,9 +351,15 @@ async function fetchAllGroupEntries(challengeId, groupId) {
     fetched += page.entries.length;
   }
 
+  const entries = pages.flatMap(page => page.entries).slice(0, targetEntries);
+
   return {
     ...firstPage,
-    entries: pages.flatMap(page => page.entries)
+    entries,
+    size: totalEntries,
+    loadedEntries: entries.length,
+    requestedEntries: targetEntries,
+    truncated: totalEntries > entries.length
   };
 }
 
@@ -474,7 +602,7 @@ function buildModel(challenge, groupResponse, forecastResponse) {
     return result;
   }, []);
 
-  return {
+  const model = {
     challenge: {
       currentRound: challenge.currentScoringPeriod?.label || "",
       key: challenge.key,
@@ -489,17 +617,25 @@ function buildModel(challenge, groupResponse, forecastResponse) {
       entriesPerMember: groupResponse.challengeSettings?.entriesPerMember || 0,
       forecastEligible: Boolean(groupResponse.forecastEligible),
       forecastTeamsRemaining: groupResponse.forecastEligibleTeamsRemaining || null,
+      apiLimited: Boolean(groupResponse.truncated && (groupResponse.loadedEntries || 0) < (groupResponse.requestedEntries || 0)),
       id: groupResponse.groupId,
       isLarge: Boolean(groupResponse.largeGroup),
       isLocked: Boolean(groupResponse.locked),
+      limited: Boolean(groupResponse.truncated),
+      loadedEntries: groupResponse.loadedEntries || groupResponse.entries.length,
       name: groupResponse.groupSettings?.name || groupResponse.groupId,
       public: Boolean(groupResponse.groupSettings?.public),
+      requestedEntries: groupResponse.requestedEntries || groupResponse.entries.length,
       size: groupResponse.size || groupResponse.entries.length
     },
     pointValueByPeriod,
     propositions,
     rounds
   };
+
+  model.colorByEntryId = buildChartColorMap(model);
+
+  return model;
 }
 
 function getSnapshotLabel(model, index) {
@@ -584,6 +720,48 @@ function getChartEntries(model, snapshotIndex) {
   );
 }
 
+function buildChartColorMap(model) {
+  const appearances = new Map();
+
+  for (let snapshotIndex = 0; snapshotIndex <= model.completedProps.length; snapshotIndex += 1) {
+    getChartEntries(model, snapshotIndex).forEach(entry => {
+      const previous = appearances.get(entry.id);
+
+      if (!previous) {
+        appearances.set(entry.id, {
+          appearances: 1,
+          bestRank: entry.rank,
+          entry,
+          firstSeen: snapshotIndex
+        });
+        return;
+      }
+
+      previous.appearances += 1;
+      previous.bestRank = Math.min(previous.bestRank, entry.rank);
+      previous.firstSeen = Math.min(previous.firstSeen, snapshotIndex);
+    });
+  }
+
+  const ordered = [...appearances.values()].sort((left, right) => {
+    if (left.firstSeen !== right.firstSeen) {
+      return left.firstSeen - right.firstSeen;
+    }
+
+    if (left.bestRank !== right.bestRank) {
+      return left.bestRank - right.bestRank;
+    }
+
+    if (left.appearances !== right.appearances) {
+      return right.appearances - left.appearances;
+    }
+
+    return left.entry.name.localeCompare(right.entry.name);
+  });
+
+  return new Map(ordered.map((item, index) => [item.entry.id, LEADER_COLORS[index % LEADER_COLORS.length]]));
+}
+
 function getLeaderSummary(standings, metric) {
   if (!standings.length) {
     return {
@@ -617,6 +795,18 @@ function formatCompactNumber(value) {
     maximumFractionDigits: 1,
     notation: "compact"
   }).format(value);
+}
+
+function getLargeGroupNote(model) {
+  if (!model.group.limited) {
+    return "";
+  }
+
+  if (model.group.apiLimited) {
+    return `This app asks ESPN for up to ${model.group.requestedEntries} entries, but ESPN's public group feed returned ${model.group.loadedEntries} for this group.`;
+  }
+
+  return `Large-group mode is on, so this view uses the first ${model.group.loadedEntries} entries ESPN returned.`;
 }
 
 function formatShortDate(timestamp) {
@@ -1016,7 +1206,10 @@ function renderSummary(model, standings, snapshotIndex) {
     ${escapeHtml(biggestMover.valueText)}
     <div class="metric-card__detail">${escapeHtml(biggestMover.detail)}</div>
   `;
-  dom.summaryAlive.textContent = `${currentAliveCount} / ${model.group.size}`;
+  dom.summaryAlive.innerHTML = `
+    ${escapeHtml(`${currentAliveCount} / ${model.group.limited ? model.group.loadedEntries : model.group.size}`)}
+    <div class="metric-card__detail">${escapeHtml(model.group.limited ? "still alive in loaded entries" : "still have a path")}</div>
+  `;
 }
 
 function renderTimeline(model, standings, snapshotIndex) {
@@ -1125,7 +1318,7 @@ function renderChart(model, selectedIndex) {
   const selectedPointsStandings = pointsStandingsBySnapshot[selectedIndex];
   const leaderEntries = chartEntries
     .map((entry, index) => ({
-      color: LEADER_COLORS[index % LEADER_COLORS.length],
+      color: model.colorByEntryId.get(entry.id) || LEADER_COLORS[index % LEADER_COLORS.length],
       entry
     }));
 
@@ -1434,10 +1627,14 @@ function renderOutlook(model) {
 
   const leadScore = model.currentLeaderScore;
   const forecastAvailable = model.forecast.available;
-  const forecastCopy = forecastAvailable
+  let forecastCopy = forecastAvailable
     ? "ESPN’s forecast feed is live, so the list below uses its win probabilities."
     : model.forecast.message ||
       "ESPN has not unlocked the permutation forecast yet, so this view uses current score and possible max to mark who is still alive.";
+
+  if (model.group.limited) {
+    forecastCopy += ` ${getLargeGroupNote(model)}`;
+  }
 
   dom.outlookPanel.className = "outlook-panel";
   dom.outlookPanel.innerHTML = `
@@ -1500,8 +1697,9 @@ function renderPicksTable(model) {
     state.picksRound === "all"
       ? `all ${model.rounds.length} rounds`
       : model.rounds.find(round => String(round.id) === state.picksRound)?.label || "selected round";
+  const largeGroupNote = model.group.limited ? ` ${getLargeGroupNote(model)}` : "";
 
-  dom.picksSummary.textContent = `Showing ${propositions.length} games from ${roundLabel}. CSV export uses this same filter.`;
+  dom.picksSummary.textContent = `Showing ${propositions.length} games from ${roundLabel}. CSV export uses this same filter.${largeGroupNote}`;
 
   if (!propositions.length) {
     dom.picksPanel.className = "table-wrap table-wrap--empty";
@@ -1583,9 +1781,19 @@ function renderDetails(model) {
         <span class="details-grid__value">${escapeHtml(model.challenge.season)}</span>
       </div>
       <div class="details-grid__row">
-        <span class="details-grid__label">Members</span>
+        <span class="details-grid__label">Group size</span>
         <span class="details-grid__value">${escapeHtml(formatCompactNumber(model.group.size))}</span>
       </div>
+      ${
+        model.group.limited
+          ? `
+            <div class="details-grid__row">
+              <span class="details-grid__label">Loaded now</span>
+              <span class="details-grid__value">${escapeHtml(formatCompactNumber(model.group.loadedEntries))}</span>
+            </div>
+          `
+          : ""
+      }
       <div class="details-grid__row">
         <span class="details-grid__label">Format</span>
         <span class="details-grid__value">ESPN bracket points</span>
@@ -1597,7 +1805,8 @@ function renderDetails(model) {
     </div>
     <ul class="details-list">
       <li>Accuracy is computed as correct picks divided by decided picks at the selected moment.</li>
-      <li>The time machine reconstructs snapshots from public group picks plus completed ESPN challenge propositions.</li>
+      <li>The tracker reconstructs snapshots from public group picks plus completed ESPN challenge propositions.</li>
+      <li>${escapeHtml(model.group.limited ? getLargeGroupNote(model) : `All ${model.group.loadedEntries} loaded entries are included in this view.`)}</li>
       <li>The win outlook switches to ESPN forecast percentages automatically if that feed becomes available late in the tournament.</li>
     </ul>
   `;
@@ -1679,6 +1888,7 @@ function syncChartModeButtons() {
 async function loadGroup(rawInput, rawSeason) {
   const lookup = parseGroupLookup(rawInput, rawSeason);
 
+  closeMobileExportSheet();
   state.loading = true;
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
@@ -1688,13 +1898,16 @@ async function loadGroup(rawInput, rawSeason) {
   try {
     const challenge = await fetchChallenge(lookup.season);
     const group = await fetchAllGroupEntries(challenge.id, lookup.groupId);
-    const forecast = await fetchForecast(challenge.id, lookup.groupId, group.size || group.entries.length);
+    const forecast = await fetchForecast(challenge.id, lookup.groupId, group.entries.length);
 
     state.model = buildModel(challenge, group, forecast);
     state.selectedIndex = state.model.completedProps.length;
     updateUrl(lookup.groupId, lookup.season);
+    rememberRecentGroup(state.model);
     setStatus(
-      `Loaded ${state.model.group.name} with ${state.model.group.size} entries from the ${state.model.challenge.season} tournament.`,
+      state.model.group.limited
+        ? `Loaded ${state.model.group.name} from the ${state.model.challenge.season} tournament. ${getLargeGroupNote(state.model)}`
+        : `Loaded ${state.model.group.name} with ${state.model.group.size} entries from the ${state.model.challenge.season} tournament.`,
       "success"
     );
   } catch (error) {
@@ -1752,23 +1965,191 @@ function buildPicksCsv(model) {
     .join("\n");
 }
 
-function downloadCurrentPicksCsv() {
+function revokeExportSheetUrl() {
+  if (!state.exportSheetUrl) {
+    return;
+  }
+
+  URL.revokeObjectURL(state.exportSheetUrl);
+  state.exportSheetUrl = null;
+}
+
+function openMobileExportSheet(title) {
+  if (!dom.exportSheet) {
+    return;
+  }
+
+  revokeExportSheetUrl();
+  dom.exportSheetTitle.textContent = title || "Preparing export";
+  dom.exportSheetNote.textContent = "Getting your file ready for this device.";
+  dom.exportSheetPreview.innerHTML = '<div class="export-sheet__loading">Preparing your export...</div>';
+  dom.exportSheetActions.innerHTML = "";
+  dom.exportSheet.hidden = false;
+  window.requestAnimationFrame(() => {
+    dom.exportSheetClose?.focus();
+  });
+}
+
+function closeMobileExportSheet() {
+  if (!dom.exportSheet) {
+    return;
+  }
+
+  revokeExportSheetUrl();
+  dom.exportSheet.hidden = true;
+  dom.exportSheetTitle.textContent = "Preparing export";
+  dom.exportSheetNote.textContent = "Getting your file ready for this device.";
+  dom.exportSheetPreview.innerHTML = "";
+  dom.exportSheetActions.innerHTML = "";
+}
+
+function shouldPrepareMobileExportSheet() {
+  if (!dom.exportSheet || !window.matchMedia("(pointer: coarse)").matches) {
+    return false;
+  }
+
+  if (!navigator.share) {
+    return true;
+  }
+
+  if (typeof File !== "function" || !navigator.canShare) {
+    return true;
+  }
+
+  try {
+    return !navigator.canShare({
+      files: [new File(["relay"], "relay-check.txt", { type: "text/plain" })]
+    });
+  } catch (error) {
+    return true;
+  }
+}
+
+async function populateMobileExportSheet(blob, fileName, title) {
+  if (!dom.exportSheet) {
+    return;
+  }
+
+  revokeExportSheetUrl();
+  const objectUrl = URL.createObjectURL(blob);
+  state.exportSheetUrl = objectUrl;
+  const fullText = await blob.text();
+  const previewText = escapeHtml(fullText.slice(0, 2400));
+  const clipped = fullText.length > 2400;
+
+  dom.exportSheetTitle.textContent = title;
+  dom.exportSheetNote.textContent =
+    "Tap save to try a direct download. If your browser opens the file instead, use copy or open it and share from there.";
+  dom.exportSheetPreview.innerHTML = `<pre class="export-sheet__code">${previewText}${clipped ? "\n\n..." : ""}</pre>`;
+  dom.exportSheetActions.innerHTML = `
+    <a
+      class="button button--primary export-sheet__button"
+      href="${objectUrl}"
+      download="${escapeAttribute(fileName)}"
+      target="_blank"
+      rel="noopener"
+    >
+      Save CSV
+    </a>
+    <a
+      class="button button--ghost export-sheet__button"
+      href="${objectUrl}"
+      target="_blank"
+      rel="noopener"
+    >
+      Open CSV
+    </a>
+    <button class="button button--secondary export-sheet__button" id="copy-export-button" type="button">
+      Copy CSV
+    </button>
+  `;
+
+  dom.exportSheetActions.querySelector("#copy-export-button")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      dom.exportSheetActions.querySelector("#copy-export-button").textContent = "Copied";
+    } catch (error) {
+      dom.exportSheetActions.querySelector("#copy-export-button").textContent = "Copy failed";
+    }
+  });
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.setAttribute("download", fileName);
+  link.style.display = "none";
+  document.body.append(link);
+  link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+  link.remove();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1200);
+}
+
+async function saveBlob(blob, fileName, title) {
+  const mobileSheetEligible = Boolean(dom.exportSheet && window.matchMedia("(pointer: coarse)").matches);
+  const file =
+    typeof File === "function"
+      ? new File([blob], fileName, {
+          type: blob.type || "application/octet-stream"
+        })
+      : null;
+
+  if (
+    navigator.share &&
+    file &&
+    (!navigator.canShare || navigator.canShare({ files: [file] }))
+  ) {
+    try {
+      await navigator.share({
+        title,
+        files: [file]
+      });
+      return "shared";
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return "cancelled";
+      }
+
+      if (mobileSheetEligible) {
+        openMobileExportSheet(title);
+        await populateMobileExportSheet(blob, fileName, title);
+        return "sheet";
+      }
+    }
+  }
+
+  if (shouldPrepareMobileExportSheet()) {
+    openMobileExportSheet(title);
+    await populateMobileExportSheet(blob, fileName, title);
+    return "sheet";
+  }
+
+  downloadBlob(blob, fileName);
+  return "downloaded";
+}
+
+async function downloadCurrentPicksCsv() {
   if (!state.model) {
     return;
   }
 
   const csv = buildPicksCsv(state.model);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
   const roundSegment = state.picksRound === "all" ? "all-rounds" : `round-${state.picksRound}`;
+  const fileName = `${sanitizeFileName(state.model.group.name)}-${roundSegment}-picks.csv`;
+  const result = await saveBlob(blob, fileName, `${state.model.group.name} picks CSV`);
 
-  anchor.href = url;
-  anchor.download = `${sanitizeFileName(state.model.group.name)}-${roundSegment}-picks.csv`;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  if (result === "shared") {
+    setStatus("CSV ready to share.", "success");
+  } else if (result === "sheet") {
+    setStatus("CSV is ready in the mobile export sheet.", "success");
+  } else if (result === "downloaded") {
+    setStatus("CSV download started.", "success");
+  }
 }
 
 function handleSubmit(event) {
@@ -1780,6 +2161,24 @@ function handleSampleLoad() {
   dom.groupInput.value = SAMPLE_GROUP.groupId;
   dom.seasonInput.value = String(SAMPLE_GROUP.season);
   loadGroup(SAMPLE_GROUP.groupId, SAMPLE_GROUP.season);
+}
+
+function handleRecentGroupSelect(event) {
+  const value = event.target.value || "";
+
+  if (!value) {
+    return;
+  }
+
+  const recentGroup = state.recentGroups.find(group => makeRecentGroupKey(group.groupId, group.season) === value);
+
+  if (!recentGroup) {
+    return;
+  }
+
+  dom.groupInput.value = recentGroup.groupId;
+  dom.seasonInput.value = String(recentGroup.season);
+  loadGroup(recentGroup.groupId, recentGroup.season);
 }
 
 function handleMetricToggle(event) {
@@ -1845,6 +2244,7 @@ function init() {
 
   dom.form.addEventListener("submit", handleSubmit);
   dom.sampleButton.addEventListener("click", handleSampleLoad);
+  dom.recentGroupsSelect?.addEventListener("change", handleRecentGroupSelect);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
   dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
   dom.picksRoundSelect.addEventListener("change", handlePicksRoundChange);
@@ -1853,8 +2253,15 @@ function init() {
   dom.timelineMarkers.addEventListener("click", handleTimelineMarkerClick);
   dom.timelinePrev.addEventListener("click", () => adjustTimeline(-1));
   dom.timelineNext.addEventListener("click", () => adjustTimeline(1));
+  dom.exportSheetClose?.addEventListener("click", closeMobileExportSheet);
+  dom.exportSheet?.addEventListener("click", event => {
+    if (event.target === dom.exportSheet) {
+      closeMobileExportSheet();
+    }
+  });
 
   renderEmptyState();
+  renderRecentGroups();
   syncMetricButtons();
   syncChartModeButtons();
 

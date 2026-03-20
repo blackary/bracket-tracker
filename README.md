@@ -1,4 +1,4 @@
-# Bracket Time Machine
+# Bracket Tracker
 
 Static ESPN Tournament Challenge group tracker.
 
@@ -15,6 +15,7 @@ It also shows:
 - a timeline scrubber for completed games
 - a bracket picks matrix with a round filter
 - CSV export for the currently visible picks table
+- recent groups remembered in `localStorage`
 - current still-alive paths using ESPN possible max
 - ESPN win probabilities later in the tournament when the forecast feed becomes available
 
@@ -66,6 +67,8 @@ https://blackary.github.io/bracket-tracker/?groupId=6e682872-7e5f-3aa2-84bf-003c
 
 - This app uses ESPN’s public Gambit APIs directly from the browser.
 - ESPN's API currently returns CORS headers that allow a GitHub Pages origin.
-- The built-in sample points at ESPN's featured `SportsCenter` public group for the 2026 tournament.
+- The built-in example button loads ESPN's featured `SportsCenter` public group for the 2026 tournament.
 - Historical snapshots are reconstructed from completed propositions and public group picks.
+- Large groups ask ESPN for up to `1000` entries, but ESPN’s public group feed may return fewer. As of March 20, 2026, the `SportsCenter` example group returned `100` public entries.
+- CSV export uses native share when possible on mobile and otherwise falls back to an in-app export sheet with save, open, and copy actions.
 - The late-round win outlook falls back to possible-max math until ESPN’s group forecast endpoint becomes available.
