@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Reworked recent groups into visible quick-load buttons, added a session-storage fallback when persistent storage is restricted, and added a prominent hero spotlight for the currently loaded group name.
 - Added an optional EvanMiya projection mode with CSV import, expected-score ranking for loaded brackets, local persistence for imported odds, and desktop/mobile QA against a live SportsCenter group.
 - Kept the app static by using manual odds import instead of a brittle live scrape, since EvanMiya's public tournament-odds page does not expose browser-readable CORS responses for GitHub Pages.
 - Raised the compact chart height, added clearer keyboard focus states, and did another desktop and mobile smoke pass across chart scrubbing, mode toggles, round filtering, and recent-group selection.

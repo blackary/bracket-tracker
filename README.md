@@ -16,7 +16,7 @@ It also shows:
 - an optional projected-finish view powered by imported EvanMiya tournament-odds CSV data
 - a bracket picks matrix with a multi-round filter that includes future rounds
 - CSV export for all loaded picks, with separate pick and result columns per game
-- recent groups remembered in `localStorage`
+- recent groups remembered in browser storage and surfaced as quick-load buttons
 - current still-alive paths using ESPN possible max
 - ESPN win probabilities later in the tournament when the forecast feed becomes available
 

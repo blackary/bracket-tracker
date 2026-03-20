@@ -60,6 +60,7 @@ const TEAM_KEY_ALIASES = {
   usu: "utahstate",
   vcu: "virginiacommonwealth"
 };
+let browserStorage;
 
 const state = {
   chartMode: CHART_MODE_RANK,
@@ -92,6 +93,9 @@ const dom = {
   downloadCsvButton: document.getElementById("download-csv-button"),
   form: document.getElementById("group-form"),
   groupInput: document.getElementById("group-input"),
+  heroGroupMeta: document.getElementById("hero-group-meta"),
+  heroGroupName: document.getElementById("hero-group-name"),
+  heroGroupSpotlight: document.getElementById("hero-group-spotlight"),
   leaderLegend: document.getElementById("leader-legend"),
   metricButtons: Array.from(document.querySelectorAll("[data-metric]")),
   oddsFileInput: document.getElementById("odds-file-input"),
@@ -105,7 +109,7 @@ const dom = {
   picksRoundOptions: document.getElementById("picks-round-options"),
   picksRoundSummary: document.getElementById("picks-round-summary"),
   picksSummary: document.getElementById("picks-summary"),
-  recentGroupsSelect: document.getElementById("recent-groups-select"),
+  recentGroupsList: document.getElementById("recent-groups-list"),
   sampleButton: document.getElementById("sample-button"),
   seasonInput: document.getElementById("season-input"),
   standingsPanel: document.getElementById("standings-panel"),
@@ -129,9 +133,38 @@ function getDefaultSeason() {
   return new Date().getFullYear();
 }
 
+function getBrowserStorage() {
+  if (browserStorage !== undefined) {
+    return browserStorage;
+  }
+
+  const candidates = [window.localStorage, window.sessionStorage];
+
+  for (const candidate of candidates) {
+    try {
+      const testKey = "__bracket_tracker_storage_test__";
+      candidate.setItem(testKey, "1");
+      candidate.removeItem(testKey);
+      browserStorage = candidate;
+      return browserStorage;
+    } catch (error) {
+      // Try the next storage bucket.
+    }
+  }
+
+  browserStorage = null;
+  return browserStorage;
+}
+
 function loadRecentGroups() {
   try {
-    const raw = window.localStorage.getItem(RECENT_GROUPS_STORAGE_KEY);
+    const storage = getBrowserStorage();
+
+    if (!storage) {
+      return [];
+    }
+
+    const raw = storage.getItem(RECENT_GROUPS_STORAGE_KEY);
 
     if (!raw) {
       return [];
@@ -170,7 +203,13 @@ function normalizeRecentGroup(value) {
 
 function persistRecentGroups() {
   try {
-    window.localStorage.setItem(RECENT_GROUPS_STORAGE_KEY, JSON.stringify(state.recentGroups));
+    const storage = getBrowserStorage();
+
+    if (!storage) {
+      return;
+    }
+
+    storage.setItem(RECENT_GROUPS_STORAGE_KEY, JSON.stringify(state.recentGroups));
   } catch (error) {
     // Ignore storage failures; the app still works without persistence.
   }
@@ -178,7 +217,13 @@ function persistRecentGroups() {
 
 function loadImportedOdds() {
   try {
-    const raw = window.localStorage.getItem(IMPORTED_ODDS_STORAGE_KEY);
+    const storage = getBrowserStorage();
+
+    if (!storage) {
+      return null;
+    }
+
+    const raw = storage.getItem(IMPORTED_ODDS_STORAGE_KEY);
 
     if (!raw) {
       return null;
@@ -192,12 +237,18 @@ function loadImportedOdds() {
 
 function persistImportedOdds() {
   try {
-    if (!state.importedOdds) {
-      window.localStorage.removeItem(IMPORTED_ODDS_STORAGE_KEY);
+    const storage = getBrowserStorage();
+
+    if (!storage) {
       return;
     }
 
-    window.localStorage.setItem(
+    if (!state.importedOdds) {
+      storage.removeItem(IMPORTED_ODDS_STORAGE_KEY);
+      return;
+    }
+
+    storage.setItem(
       IMPORTED_ODDS_STORAGE_KEY,
       JSON.stringify({
         importedAt: state.importedOdds.importedAt,
@@ -296,7 +347,7 @@ function rememberRecentGroup(model) {
 }
 
 function renderRecentGroups() {
-  if (!dom.recentGroupsSelect) {
+  if (!dom.recentGroupsList) {
     return;
   }
 
@@ -306,26 +357,51 @@ function renderRecentGroups() {
       : "";
 
   if (!state.recentGroups.length) {
-    dom.recentGroupsSelect.innerHTML = '<option value="">No recent groups yet</option>';
-    dom.recentGroupsSelect.disabled = true;
+    dom.recentGroupsList.className = "recent-groups recent-groups--empty";
+    dom.recentGroupsList.innerHTML = '<p class="recent-groups__empty">No recent groups yet</p>';
     return;
   }
 
-  dom.recentGroupsSelect.innerHTML = `
-    <option value="">Recent groups</option>
-    ${state.recentGroups
-      .map(group => {
-        const value = makeRecentGroupKey(group.groupId, group.season);
-        const shortId = group.groupId.slice(0, 8);
-        return `
-          <option value="${escapeHtml(value)}"${value === selectedKey ? " selected" : ""}>
-            ${escapeHtml(group.name)} • ${escapeHtml(group.season)} • ${escapeHtml(shortId)}
-          </option>
-        `;
-      })
-      .join("")}
-  `;
-  dom.recentGroupsSelect.disabled = false;
+  dom.recentGroupsList.className = "recent-groups";
+  dom.recentGroupsList.innerHTML = state.recentGroups
+    .map(group => {
+      const value = makeRecentGroupKey(group.groupId, group.season);
+      const shortId = group.groupId.slice(0, 8);
+      const active = value === selectedKey;
+      return `
+        <button
+          class="recent-group-button${active ? " recent-group-button--active" : ""}"
+          type="button"
+          data-recent-group="${escapeAttribute(value)}"
+          aria-pressed="${active ? "true" : "false"}"
+        >
+          <span class="recent-group-button__name">${escapeHtml(group.name)}</span>
+          <span class="recent-group-button__meta">${escapeHtml(`${group.season} • ${shortId}`)}</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function renderHeroGroupSpotlight(model) {
+  if (!dom.heroGroupSpotlight || !dom.heroGroupName || !dom.heroGroupMeta) {
+    return;
+  }
+
+  if (!model) {
+    dom.heroGroupSpotlight.className = "hero-group hero-group--empty";
+    dom.heroGroupName.textContent = "No group loaded";
+    dom.heroGroupMeta.textContent = "Load a public ESPN Tournament Challenge group to start tracking its history.";
+    return;
+  }
+
+  const entryCount = model.group.limited
+    ? `${formatCompactNumber(model.group.loadedEntries)} shown of ${formatCompactNumber(model.group.size)} entries`
+    : `${formatCompactNumber(model.group.size)} entries`;
+
+  dom.heroGroupSpotlight.className = "hero-group";
+  dom.heroGroupName.textContent = model.group.name;
+  dom.heroGroupMeta.textContent = `${model.challenge.season} tournament • ${entryCount}`;
 }
 
 function setStatus(message, tone = "idle") {
@@ -2769,6 +2845,7 @@ function renderDetails(model) {
 
 function renderEmptyState() {
   finishChartScrub();
+  renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
   dom.chartSnapshotStrip.textContent = "Load a group to keep the current snapshot next to the chart.";
   dom.chartPanel.className = "chart-panel chart-panel--empty";
@@ -2823,6 +2900,7 @@ function render() {
     return;
   }
 
+  renderHeroGroupSpotlight(state.model);
   const safeIndex = Math.min(state.selectedIndex, state.model.completedProps.length);
   const standings = getSnapshotStandings(state.model, safeIndex, state.metric);
   const summary = buildSnapshotSummary(state.model, standings, safeIndex);
@@ -3168,8 +3246,14 @@ function handleSampleLoad() {
   loadGroup(SAMPLE_GROUP.groupId, SAMPLE_GROUP.season);
 }
 
-function handleRecentGroupSelect(event) {
-  const value = event.target.value || "";
+function handleRecentGroupClick(event) {
+  const button = event.target.closest("[data-recent-group]");
+
+  if (!button) {
+    return;
+  }
+
+  const value = button.dataset.recentGroup || "";
 
   if (!value) {
     return;
@@ -3403,7 +3487,7 @@ function init() {
 
   dom.form.addEventListener("submit", handleSubmit);
   dom.sampleButton.addEventListener("click", handleSampleLoad);
-  dom.recentGroupsSelect?.addEventListener("change", handleRecentGroupSelect);
+  dom.recentGroupsList?.addEventListener("click", handleRecentGroupClick);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
   dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
   dom.outlookModeButtons.forEach(button => button.addEventListener("click", handleOutlookModeToggle));

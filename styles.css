@@ -215,6 +215,48 @@ select {
   line-height: 1;
 }
 
+.hero-group {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.hero-group--empty {
+  opacity: 0.84;
+}
+
+.hero-group__label {
+  margin: 0;
+  color: rgba(248, 215, 147, 0.86);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero-group__name {
+  margin: 0;
+  color: #fffdf9;
+  font-family: "Newsreader", ui-serif, serif;
+  font-size: clamp(1.55rem, 3vw, 2.35rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+
+.hero-group__meta {
+  margin: 0;
+  color: rgba(255, 248, 240, 0.78);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .hero .eyebrow {
   position: relative;
   z-index: 1;
@@ -283,6 +325,60 @@ select {
 .field__select {
   appearance: none;
   cursor: pointer;
+}
+
+.recent-groups {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.recent-groups--empty {
+  padding: 0.95rem 1rem;
+  border: 1px dashed rgba(24, 32, 44, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.recent-groups__empty {
+  margin: 0;
+  color: var(--ink-faint);
+  line-height: 1.5;
+}
+
+.recent-group-button {
+  display: grid;
+  gap: 0.14rem;
+  width: 100%;
+  padding: 0.8rem 0.92rem;
+  border: 1px solid rgba(24, 32, 44, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.recent-group-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(32, 78, 123, 0.18);
+  box-shadow: 0 12px 24px rgba(16, 32, 51, 0.08);
+}
+
+.recent-group-button--active {
+  border-color: rgba(186, 58, 27, 0.24);
+  background: rgba(186, 58, 27, 0.08);
+  box-shadow: 0 14px 26px rgba(186, 58, 27, 0.08);
+}
+
+.recent-group-button__name {
+  font-weight: 700;
+}
+
+.recent-group-button__meta {
+  color: var(--ink-faint);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .field--inline {
@@ -450,6 +546,7 @@ select {
 
 .button:focus-visible,
 .segmented-control__button:focus-visible,
+.recent-group-button:focus-visible,
 .round-filter__summary:focus-visible,
 .round-filter__action:focus-visible,
 .timeline-marker:focus-visible,
@@ -1583,6 +1680,15 @@ select {
     font-size: 0.82rem;
   }
 
+  .hero-group {
+    margin-top: 1rem;
+    padding: 0.9rem 0.92rem;
+  }
+
+  .hero-group__name {
+    font-size: clamp(1.45rem, 8vw, 1.95rem);
+  }
+
   .lookup-card,
   .card {
     padding: 1rem;
@@ -1656,6 +1762,10 @@ select {
 
   .round-filter {
     min-width: 100%;
+  }
+
+  .recent-groups {
+    gap: 0.5rem;
   }
 
   .round-filter__menu {
@@ -1850,6 +1960,10 @@ select {
 
   .hero__copy {
     padding: 1.1rem 1rem 1.15rem;
+  }
+
+  .hero-group__meta {
+    font-size: 0.88rem;
   }
 
   .outlook-toolbar__actions {

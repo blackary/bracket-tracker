@@ -38,6 +38,13 @@
             <span class="hero__highlight">Top 10 movement</span>
             <span class="hero__highlight">Odds projection</span>
           </div>
+          <div id="hero-group-spotlight" class="hero-group hero-group--empty" aria-live="polite">
+            <p class="hero-group__label">Currently Tracking</p>
+            <h2 id="hero-group-name" class="hero-group__name">No group loaded</h2>
+            <p id="hero-group-meta" class="hero-group__meta">
+              Load a public ESPN Tournament Challenge group to start tracking its history.
+            </p>
+          </div>
         </div>
 
         <form id="group-form" class="lookup-card" autocomplete="off">
@@ -77,9 +84,9 @@
 
           <label class="field">
             <span class="field__label">Recent groups</span>
-            <select id="recent-groups-select" class="field__input field__select" disabled>
-              <option value="">No recent groups yet</option>
-            </select>
+            <div id="recent-groups-list" class="recent-groups recent-groups--empty">
+              <p class="recent-groups__empty">No recent groups yet</p>
+            </div>
           </label>
 
           <p class="lookup-card__hint">
