@@ -14,7 +14,7 @@ It also shows:
 - expanded snapshot stats including lead margin, cutline, lead changes, and biggest mover
 - a timeline scrubber for completed games
 - a bracket picks matrix with a multi-round filter that includes future rounds
-- CSV export for the currently visible picks table
+- CSV export for all loaded picks, with separate pick and result columns per game
 - recent groups remembered in `localStorage`
 - current still-alive paths using ESPN possible max
 - ESPN win probabilities later in the tournament when the forecast feed becomes available
@@ -71,4 +71,5 @@ https://blackary.github.io/bracket-tracker/?groupId=6e682872-7e5f-3aa2-84bf-003c
 - Historical snapshots are reconstructed from completed propositions and public group picks.
 - Large groups ask ESPN for up to `1000` entries, but ESPN’s public group feed may return fewer. As of March 20, 2026, the `SportsCenter` example group returned `100` public entries.
 - CSV export uses native share when possible on mobile and otherwise falls back to an in-app export sheet with save, open, and copy actions.
+- CSV downloads include all loaded rounds by default, even if the on-page picks table is filtered to a subset of rounds.
 - The late-round win outlook falls back to possible-max math until ESPN’s group forecast endpoint becomes available.

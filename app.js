@@ -1382,7 +1382,8 @@ function getPickState(model, entry, proposition) {
   if (!pickedOutcome) {
     return {
       cssClass: "pick-chip--missing",
-      csvValue: "",
+      csvLabel: "",
+      csvStatus: "NO PICK",
       label: "—",
       status: "NO PICK",
       title: "No pick recorded"
@@ -1402,7 +1403,8 @@ function getPickState(model, entry, proposition) {
 
   return {
     cssClass,
-    csvValue: `${team?.name || label} (${status})`,
+    csvLabel: team?.name || label,
+    csvStatus: status,
     label,
     status,
     title: `${team?.name || label} • ${status}`
@@ -2079,7 +2081,7 @@ function renderPicksTable(model) {
         : `${selectedRounds.length} selected rounds`;
   const largeGroupNote = model.group.limited ? ` ${getLargeGroupNote(model)}` : "";
 
-  dom.picksSummary.textContent = `Showing ${formatGameCount(propositions.length)} from ${roundLabel}. CSV export uses this same filter.${largeGroupNote}`;
+  dom.picksSummary.textContent = `Showing ${formatGameCount(propositions.length)} from ${roundLabel}. CSV export downloads all loaded rounds by default.${largeGroupNote}`;
 
   if (!propositions.length) {
     dom.picksPanel.className = "table-wrap table-wrap--empty";
@@ -2342,8 +2344,24 @@ function sanitizeFileName(value) {
     .slice(0, 80) || "group";
 }
 
+function getExportPropositions(model) {
+  return model?.pickPropositions || [];
+}
+
+function getExportGameLabel(proposition) {
+  if (proposition.teams.length === 2) {
+    const [awayTeam, homeTeam] = proposition.teams;
+    const awayLabel = awayTeam?.abbrev || awayTeam?.name || "Team 1";
+    const homeLabel = homeTeam?.abbrev || homeTeam?.name || "Team 2";
+
+    return `${proposition.roundAbbrev} ${awayLabel} @ ${homeLabel}`;
+  }
+
+  return `${proposition.roundAbbrev} ${proposition.name}`;
+}
+
 function buildPicksCsv(model) {
-  const propositions = getPicksPropositions(model);
+  const propositions = getExportPropositions(model);
   const currentStandings = getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS);
   const headers = [
     "current_rank",
@@ -2351,7 +2369,10 @@ function buildPicksCsv(model) {
     "member_name",
     "current_points",
     "current_accuracy_pct",
-    ...propositions.map(proposition => `${proposition.roundAbbrev} ${proposition.name}`)
+    ...propositions.flatMap(proposition => {
+      const label = getExportGameLabel(proposition);
+      return [`${label} pick`, `${label} result`];
+    })
   ];
 
   const rows = currentStandings.map(entry => {
@@ -2361,7 +2382,10 @@ function buildPicksCsv(model) {
       entry.memberName,
       entry.currentPoints,
       entry.currentAccuracyPct.toFixed(1),
-      ...propositions.map(proposition => getPickState(model, entry, proposition).csvValue)
+      ...propositions.flatMap(proposition => {
+        const pickState = getPickState(model, entry, proposition);
+        return [pickState.csvLabel, pickState.csvStatus];
+      })
     ];
   });
 
@@ -2544,12 +2568,7 @@ async function downloadCurrentPicksCsv() {
 
   const csv = buildPicksCsv(state.model);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const selectedRounds = getSelectedRounds(state.model);
-  const roundSegment =
-    selectedRounds.length === state.model.rounds.length
-      ? "all-rounds"
-      : `rounds-${selectedRounds.map(round => round.id).join("-")}`;
-  const fileName = `${sanitizeFileName(state.model.group.name)}-${roundSegment}-picks.csv`;
+  const fileName = `${sanitizeFileName(state.model.group.name)}-all-rounds-picks.csv`;
   const result = await saveBlob(blob, fileName, `${state.model.group.name} picks CSV`);
 
   if (result === "shared") {

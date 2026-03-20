@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Split CSV exports into separate pick and result columns for each game, and made downloads default to all loaded rounds instead of the current table filter.
 - Switched the picks matrix to use ESPN's full propositions catalog, so the round filter now exposes all six rounds and supports arbitrary multi-round combinations even before later games tip.
 - Tightened the future-round picks table headers so later rounds show matchup labels plus possible-team counts instead of dumping every potential team into one column header.
 - Tightened the app's visual direction with a darker hero treatment, stronger card surfaces, cleaner legend chips, and warmer chart and table panels so the page reads less like a generic dashboard.
