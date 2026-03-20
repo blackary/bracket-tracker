@@ -573,8 +573,8 @@ function getSnapshotStandings(model, index, metric) {
   });
 }
 
-function getChartEntries(model) {
-  return getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS).slice(
+function getChartEntries(model, snapshotIndex) {
+  return getSnapshotStandings(model, snapshotIndex, METRIC_POINTS).slice(
     0,
     Math.min(model.entries.length, MAX_CHART_LINES)
   );
@@ -700,15 +700,21 @@ function buildChartPath(points) {
 function syncTimelineScrubber(model, snapshotIndex) {
   const completedCount = model ? model.completedProps.length : 0;
   const totalSnapshots = completedCount + 1;
+  const caption =
+    !model || !completedCount
+      ? "No historical snapshots yet."
+      : snapshotIndex === 0
+        ? `Before ${model.completedProps[0].name} • 0 completed games were already in the book`
+        : snapshotIndex < completedCount
+          ? `After ${model.completedProps[snapshotIndex - 1].name} • Before ${model.completedProps[snapshotIndex].name}`
+          : `Now after ${model.completedProps[completedCount - 1].name} • ${snapshotIndex} completed games were already in the book`;
 
   dom.timelineRange.max = String(completedCount);
   dom.timelineRange.value = String(snapshotIndex);
   dom.timelineRange.disabled = completedCount === 0;
   dom.timelinePrev.disabled = snapshotIndex <= 0;
   dom.timelineNext.disabled = snapshotIndex >= completedCount;
-  dom.timelineCaption.textContent = model
-    ? `${getSnapshotLabel(model, snapshotIndex)} • ${snapshotIndex} completed games were already in the book`
-    : "No historical snapshots yet.";
+  dom.timelineCaption.textContent = caption;
 
   if (!model || totalSnapshots <= 1) {
     dom.timelineMarkers.innerHTML = '<span class="timeline-marker timeline-marker--empty"></span>';
@@ -718,8 +724,10 @@ function syncTimelineScrubber(model, snapshotIndex) {
   dom.timelineMarkers.style.gridTemplateColumns = `repeat(${totalSnapshots}, minmax(0, 1fr))`;
   dom.timelineMarkers.innerHTML = Array.from({ length: totalSnapshots }, (_, index) => {
     const label =
-      index < completedCount
-        ? `Before ${model.completedProps[index].name}`
+      index === 0
+        ? `Before ${model.completedProps[0].name}`
+        : index < completedCount
+          ? `After ${model.completedProps[index - 1].name} / before ${model.completedProps[index].name}`
         : `Now after ${model.completedProps[completedCount - 1]?.name || "the latest game"}`;
 
     return `
@@ -912,7 +920,7 @@ function renderTimeline(model, standings, snapshotIndex) {
 
 function renderChart(model, selectedIndex) {
   const totalSnapshots = model.completedProps.length + 1;
-  const chartEntries = getChartEntries(model);
+  const chartEntries = getChartEntries(model, selectedIndex);
 
   if (!chartEntries.length || totalSnapshots <= 1) {
     dom.chartPanel.className = "chart-panel chart-panel--empty";
@@ -927,6 +935,7 @@ function renderChart(model, selectedIndex) {
 
     return new Map(standings.filter(entry => chartEntryIds.has(entry.id)).map(entry => [entry.id, entry]));
   });
+  const currentPointsStandings = pointsStandingsBySnapshot[model.completedProps.length];
   const selectedPointsStandings = pointsStandingsBySnapshot[selectedIndex];
   const leaderEntries = chartEntries
     .map((entry, index) => ({
@@ -1108,18 +1117,19 @@ function renderChart(model, selectedIndex) {
 
   dom.leaderLegend.innerHTML = leaderEntries
     .map(({ entry, color }) => {
+      const currentSnapshotEntry = currentPointsStandings.get(entry.id);
       const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
       const meta =
         selectedIndex === model.completedProps.length
           ? state.chartMode === CHART_MODE_RANK
-            ? `Now ${formatRankDisplay(entry.rank)}`
-            : `Now ${formatRankDisplay(entry.rank)} • ${entry.snapshot.points} pts`
+            ? `Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`
+            : `Now ${formatRankDisplay(currentSnapshotEntry?.rank)} • ${currentSnapshotEntry?.snapshot.points ?? 0} pts`
           : state.chartMode === CHART_MODE_RANK
-            ? `Now ${formatRankDisplay(entry.rank)} • Selected ${formatRankDisplay(selectedSnapshotEntry?.rank)}`
-            : `Now ${formatRankDisplay(entry.rank)} • Selected ${formatChartValueDisplay(
+            ? `Selected ${formatRankDisplay(selectedSnapshotEntry?.rank)} • Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`
+            : `Selected ${formatChartValueDisplay(
                 selectedSnapshotEntry,
                 CHART_MODE_POINTS
-              )}`;
+              )} • Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`;
 
       return `
         <div class="legend__item">

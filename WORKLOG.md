@@ -10,3 +10,4 @@
 - Replaced the original hard-coded sample group with ESPN's featured SportsCenter public group.
 - Changed the chart to follow the current top 10 by ESPN points and added a chart-view toggle for rank vs point totals.
 - Moved the scrubber into the chart card and added per-game markers so the graph itself can be scrubbed game by game.
+- Changed the chart cohort to the selected moment's top 10 so scrubbing updates who is shown at each point in the tournament.
