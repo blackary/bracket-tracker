@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Removed the confusing `Still Alive Today` summary card and left the dedicated win-outlook panel as the single place for current can-still-win status.
 - Added a `Leader Gap` chart mode so the top-10 graph can be viewed relative to the current leader instead of only as raw points or rank.
 - Rewrote the hero, metadata, and helper copy to sound like product copy instead of implementation notes, and added explicit share metadata for cleaner link previews.
 - Split CSV exports into separate pick and result columns for each game, and made downloads default to all loaded rounds instead of the current table filter.

@@ -76,7 +76,6 @@ const dom = {
   seasonInput: document.getElementById("season-input"),
   standingsPanel: document.getElementById("standings-panel"),
   statusBanner: document.getElementById("status-banner"),
-  summaryAlive: document.getElementById("summary-alive"),
   summaryChanges: document.getElementById("summary-changes"),
   summaryCutline: document.getElementById("summary-cutline"),
   summaryDecided: document.getElementById("summary-decided"),
@@ -1490,7 +1489,6 @@ function syncPicksControls(model) {
 
 function buildSnapshotSummary(model, standings, snapshotIndex) {
   const leaders = getLeaderSummary(standings, state.metric);
-  const currentAliveCount = model.entries.filter(entry => entry.stillAlive).length;
   const leadName = leaders.entries[0]?.name ? truncateLabel(leaders.entries[0].name, 26) : "-";
   const leaderDetail = leaders.entries.length
     ? `${formatTieLabel(leaders.entries.length)} • ${leaders.valueText}`
@@ -1500,13 +1498,8 @@ function buildSnapshotSummary(model, standings, snapshotIndex) {
   const leadChanges = getLeadChangeCount(model, snapshotIndex, state.metric);
   const biggestMover = getBiggestMoverSummary(model, snapshotIndex, state.metric);
   const snapshotLabel = getSnapshotLabel(model, snapshotIndex);
-  const loadedEntryCount = model.group.limited ? model.group.loadedEntries : model.group.size;
 
   return {
-    alive: {
-      detail: model.group.limited ? "still alive in loaded entries" : "still have a path",
-      valueText: `${currentAliveCount} / ${loadedEntryCount}`
-    },
     biggestMover,
     completed: {
       detail: "completed games",
@@ -1548,10 +1541,6 @@ function renderSummary(summary) {
   dom.summaryMover.innerHTML = `
     ${escapeHtml(summary.biggestMover.valueText)}
     <div class="metric-card__detail">${escapeHtml(summary.biggestMover.detail)}</div>
-  `;
-  dom.summaryAlive.innerHTML = `
-    ${escapeHtml(summary.alive.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.alive.detail)}</div>
   `;
 }
 
@@ -2262,7 +2251,6 @@ function renderEmptyState() {
   dom.summaryCutline.textContent = "-";
   dom.summaryChanges.textContent = "-";
   dom.summaryMover.textContent = "-";
-  dom.summaryAlive.textContent = "-";
   syncTimelineScrubber(null, 0);
   state.picksRoundIds = [];
   if (dom.picksRoundFilter) {
