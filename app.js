@@ -1003,7 +1003,25 @@ function layoutChartCallouts(callouts, minY, maxY, gap) {
     }
   }
 
-  return laidOut;
+  let previousY = -Infinity;
+  let lane = 0;
+
+  return laidOut.map(callout => {
+    const crowded = callout.y - previousY < gap + 10;
+
+    if (!crowded) {
+      lane = 0;
+    } else {
+      lane = (lane + 1) % 2;
+    }
+
+    previousY = callout.y;
+
+    return {
+      ...callout,
+      laneOffset: lane * 16
+    };
+  });
 }
 
 function buildChartPath(points) {
@@ -1358,9 +1376,11 @@ function renderChart(model, selectedIndex) {
   const width = compact ? 760 : 980;
   const height = compact ? 310 : 360;
   const calloutLimit = compact ? 0 : medium ? 3 : MAX_CHART_CALLOUTS;
+  const calloutGap = medium ? 50 : 54;
+  const calloutHeight = 42;
   const padding = {
     top: 20,
-    right: compact ? 24 : medium ? 176 : 210,
+    right: compact ? 24 : medium ? 224 : 238,
     bottom: compact ? 36 : 32,
     left: compact ? 34 : 42
   };
@@ -1417,7 +1437,7 @@ function renderChart(model, selectedIndex) {
         currentY: yFor(selectedValue),
         entryId: entry.id,
         label: shortLabel,
-        labelWidth: Math.max(126, Math.min(190, Math.max(shortLabel.length * 7.6, valueText.length * 7) + 32)),
+        labelWidth: Math.max(126, Math.min(180, Math.max(shortLabel.length * 7.2, valueText.length * 6.8) + 30)),
         sortValue: state.chartMode === CHART_MODE_RANK ? selectedSnapshotEntry.rank : -selectedSnapshotEntry.snapshot.points,
         targetY: yFor(selectedValue),
         valueText
@@ -1428,15 +1448,15 @@ function renderChart(model, selectedIndex) {
     .slice(0, calloutLimit);
   const callouts = layoutChartCallouts(
     calloutCandidates,
-    padding.top + 18,
-    height - padding.bottom - 18,
-    42
+    padding.top + calloutHeight / 2,
+    height - padding.bottom - calloutHeight / 2,
+    calloutGap
   );
   const calloutMarkup = callouts
     .map(callout => {
-      const labelX = plotRight + 18;
+      const labelX = plotRight + 18 + (callout.laneOffset || 0);
       const labelY = callout.y;
-      const labelHeight = 38;
+      const labelHeight = calloutHeight;
       const connectorMidX = Math.min(callout.currentX + 20, labelX - 12);
 
       return `
