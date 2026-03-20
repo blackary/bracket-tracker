@@ -699,6 +699,45 @@ select {
   grid-column: 1 / -1;
 }
 
+.card--chart .card__header {
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.5rem;
+}
+
+.card--chart .card__header--split {
+  align-items: end;
+}
+
+.card--chart .control-stack {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: end;
+  gap: 0.65rem 0.9rem;
+}
+
+.card--chart .control-group {
+  gap: 0.2rem;
+}
+
+.card--chart .field__label {
+  margin-bottom: 0;
+  font-size: 0.72rem;
+}
+
+.card--chart .segmented-control {
+  min-height: 2.55rem;
+}
+
+.card--chart .segmented-control__button {
+  padding: 0.48rem 0.76rem;
+}
+
+.card--chart #timeline-play {
+  min-height: 2.55rem;
+  padding-inline: 0.95rem;
+}
+
 .card__header {
   margin-bottom: 1rem;
   padding-bottom: 0.85rem;
@@ -796,9 +835,9 @@ select {
 
 .snapshot-strip {
   display: grid;
-  gap: 0.85rem;
-  margin-bottom: 0.9rem;
-  padding: 1rem;
+  gap: 0.52rem;
+  margin-bottom: 0.58rem;
+  padding: 0.68rem 0.72rem;
   border: 1px solid rgba(24, 32, 44, 0.08);
   border-radius: var(--radius-lg);
   background:
@@ -818,9 +857,9 @@ select {
 
 .snapshot-strip__header {
   display: flex;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .snapshot-strip__eyebrow,
@@ -834,61 +873,62 @@ select {
 }
 
 .snapshot-strip__copy {
-  margin: 0.18rem 0 0;
+  display: none;
+  margin: 0;
   color: var(--ink-soft);
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .snapshot-strip__mode {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0.45rem 0.8rem;
+  min-height: 1.8rem;
+  padding: 0.35rem 0.68rem;
   border: 1px solid rgba(32, 78, 123, 0.12);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--blue);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .snapshot-strip__items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: 0.55rem;
 }
 
 .snapshot-strip__item {
   min-width: 0;
-  padding: 0.78rem 0.82rem 0.82rem;
+  padding: 0.52rem 0.62rem 0.56rem;
   border: 1px solid rgba(24, 32, 44, 0.08);
-  border-radius: 1rem;
+  border-radius: 0.92rem;
   background: rgba(255, 255, 255, 0.76);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .snapshot-strip__value {
-  margin-top: 0.2rem;
+  margin-top: 0.08rem;
   color: var(--ink);
   font-family: "Newsreader", ui-serif, serif;
-  font-size: clamp(1.1rem, 2vw, 1.55rem);
-  line-height: 1;
+  font-size: clamp(0.96rem, 1.45vw, 1.18rem);
+  line-height: 0.96;
   letter-spacing: -0.03em;
 }
 
 .snapshot-strip__detail {
-  margin-top: 0.3rem;
+  margin-top: 0.18rem;
   color: var(--ink-soft);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.28;
 }
 
 .chart-panel {
   position: relative;
-  min-height: 22rem;
+  min-height: 19rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(16, 32, 51, 0.08);
   background:
@@ -913,7 +953,7 @@ select {
 }
 
 .chart-shell {
-  padding: 1rem 1.05rem 0.5rem;
+  padding: 0.78rem 0.9rem 0.35rem;
 }
 
 .chart-shell svg {
@@ -931,7 +971,7 @@ select {
   --plot-right: 21.5%;
   display: grid;
   gap: 0.65rem;
-  margin-top: 0.85rem;
+  margin-top: 0.65rem;
 }
 
 .chart-axis-label {
