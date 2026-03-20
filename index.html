@@ -7,8 +7,13 @@
     <title>Bracket Tracker</title>
     <meta
       name="description"
-      content="Track ESPN Tournament Challenge group leaders over time with a static app."
+      content="Track ESPN Tournament Challenge group leaders over time."
     />
+    <meta property="og:title" content="Bracket Tracker" />
+    <meta property="og:description" content="Track ESPN Tournament Challenge group leaders over time." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Bracket Tracker" />
+    <meta name="twitter:description" content="Track ESPN Tournament Challenge group leaders over time." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,12 +26,12 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero__copy">
-          <p class="eyebrow">Static ESPN Group Tracker</p>
+          <p class="eyebrow">ESPN Group History</p>
           <h1>Bracket Tracker</h1>
           <p class="hero__lede">
-            Load a public ESPN Tournament Challenge group, rewind to any
-            completed game, compare leaders by ESPN points or pick accuracy,
-            and see who still has a path to win.
+            Load an ESPN Tournament Challenge group, rewind to any completed
+            game, compare leaders by ESPN points or pick accuracy, and see who
+            still has a path to win.
           </p>
           <div class="hero__highlights" aria-label="Key features">
             <span class="hero__highlight">Game-by-game rewind</span>
@@ -42,7 +47,7 @@
               id="group-input"
               class="field__input"
               name="group"
-              placeholder="Paste a public ESPN group URL or UUID"
+              placeholder="Paste an ESPN group URL or group ID"
               spellcheck="false"
               required
             />
@@ -78,13 +83,13 @@
           </label>
 
           <p class="lookup-card__hint">
-            Works against ESPN’s public group and challenge APIs.
+            Paste a group link or ID to load the board.
           </p>
         </form>
       </header>
 
       <div id="status-banner" class="status-banner status-banner--idle">
-        Enter a public group ID to build the timeline.
+        Enter a group ID to load the timeline.
       </div>
 
       <main class="dashboard">
@@ -173,6 +178,14 @@
                     >
                       Point Total
                     </button>
+                    <button
+                      class="segmented-control__button"
+                      type="button"
+                      data-chart-mode="gap"
+                      aria-pressed="false"
+                    >
+                      Leader Gap
+                    </button>
                   </div>
                 </div>
               </div>
@@ -242,13 +255,12 @@
             <article class="card">
               <div class="card__header">
                 <p class="card__eyebrow">Group Notes</p>
-                <h2 class="card__title">What this tracker is using</h2>
+                <h2 class="card__title">About This View</h2>
               </div>
               <div id="details-panel" class="details-panel">
                 <p class="details-panel__empty">
-                  Public ESPN challenge data, group picks, and optional forecast
-                  data are combined here. Historical snapshots are ordered by
-                  completed game tip times.
+                  Load a group to see scoring, entry counts, and how the
+                  timeline is being read.
                 </p>
               </div>
             </article>

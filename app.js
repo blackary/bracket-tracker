@@ -13,6 +13,7 @@ const METRIC_POINTS = "points";
 const METRIC_ACCURACY = "accuracy";
 const CHART_MODE_RANK = "rank";
 const CHART_MODE_POINTS = "points";
+const CHART_MODE_GAP = "gap";
 const RECENT_GROUPS_STORAGE_KEY = "bracket-tracker/recent-groups/v1";
 const LEADER_COLORS = [
   "#ba3a1b",
@@ -202,7 +203,7 @@ function parseGroupLookup(rawInput, rawSeason) {
     }
   }
 
-  throw new Error("Could not parse that value. Use a group UUID or a full ESPN group URL.");
+  throw new Error("Could not parse that value. Use a group ID or a full ESPN group URL.");
 }
 
 function updateUrl(groupId, season) {
@@ -979,10 +980,10 @@ function getLargeGroupNote(model) {
   }
 
   if (model.group.apiLimited) {
-    return `This app asks ESPN for up to ${model.group.requestedEntries} entries, but ESPN's public group feed returned ${model.group.loadedEntries} for this group.`;
+    return `This view includes the ${model.group.loadedEntries} entries ESPN currently makes available for this group.`;
   }
 
-  return `Large-group mode is on, so this view uses the first ${model.group.loadedEntries} entries ESPN returned.`;
+  return `This view uses the first ${model.group.loadedEntries} entries from this large group.`;
 }
 
 function formatShortDate(timestamp) {
@@ -1038,12 +1039,40 @@ function formatRankDisplay(rank) {
   return rank ? `#${rank}` : "-";
 }
 
-function formatChartValueDisplay(snapshotEntry, chartMode) {
+function formatGapDisplay(value) {
+  return `${value} back`;
+}
+
+function getChartModeValue(snapshotEntry, chartMode, leaderPoints = 0) {
+  if (!snapshotEntry) {
+    return null;
+  }
+
+  if (chartMode === CHART_MODE_RANK) {
+    return snapshotEntry.rank;
+  }
+
+  if (chartMode === CHART_MODE_GAP) {
+    return Math.max(leaderPoints - snapshotEntry.snapshot.points, 0);
+  }
+
+  return snapshotEntry.snapshot.points;
+}
+
+function formatChartValueDisplay(snapshotEntry, chartMode, leaderPoints = 0) {
   if (!snapshotEntry) {
     return "-";
   }
 
-  return chartMode === CHART_MODE_RANK ? formatRankDisplay(snapshotEntry.rank) : `${snapshotEntry.snapshot.points} pts`;
+  if (chartMode === CHART_MODE_RANK) {
+    return formatRankDisplay(snapshotEntry.rank);
+  }
+
+  if (chartMode === CHART_MODE_GAP) {
+    return formatGapDisplay(getChartModeValue(snapshotEntry, chartMode, leaderPoints));
+  }
+
+  return `${snapshotEntry.snapshot.points} pts`;
 }
 
 function getLeadMarginSummary(standings, metric) {
@@ -1678,13 +1707,18 @@ function renderChart(model, selectedIndex) {
   }
 
   const chartEntryIds = new Set(chartEntries.map(entry => entry.id));
-  const pointsStandingsBySnapshot = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
+  const pointSnapshots = Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
     const standings = getSnapshotStandings(model, snapshotIndex, METRIC_POINTS);
 
-    return new Map(standings.filter(entry => chartEntryIds.has(entry.id)).map(entry => [entry.id, entry]));
+    return {
+      entriesById: new Map(standings.filter(entry => chartEntryIds.has(entry.id)).map(entry => [entry.id, entry])),
+      leaderPoints: standings[0]?.snapshot.points ?? 0
+    };
   });
-  const currentPointsStandings = pointsStandingsBySnapshot[model.completedProps.length];
-  const selectedPointsStandings = pointsStandingsBySnapshot[selectedIndex];
+  const currentPointsSnapshot = pointSnapshots[model.completedProps.length];
+  const selectedPointsSnapshot = pointSnapshots[selectedIndex];
+  const currentPointsStandings = currentPointsSnapshot.entriesById;
+  const selectedPointsStandings = selectedPointsSnapshot.entriesById;
   const leaderEntries = chartEntries
     .map((entry, index) => ({
       color: model.colorByEntryId.get(entry.id) || LEADER_COLORS[index % LEADER_COLORS.length],
@@ -1709,13 +1743,27 @@ function renderChart(model, selectedIndex) {
   const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
   const maxPoints = Math.max(...leaderEntries.flatMap(({ entry }) => entry.series.map(snapshot => snapshot.points)), 1);
+  const maxGap = Math.max(
+    ...pointSnapshots.flatMap(snapshot =>
+      leaderEntries.map(({ entry }) => {
+        const snapshotEntry = snapshot.entriesById.get(entry.id);
+        return snapshotEntry ? getChartModeValue(snapshotEntry, CHART_MODE_GAP, snapshot.leaderPoints) : 0;
+      })
+    ),
+    1
+  );
   const xStep = totalSnapshots > 1 ? chartWidth / (totalSnapshots - 1) : chartWidth;
   const xFor = index => padding.left + index * xStep;
-  const gridValues = state.chartMode === CHART_MODE_RANK ? [1, 3, 5, 7, 10] : buildPointTicks(maxPoints);
+  const gridValues =
+    state.chartMode === CHART_MODE_RANK
+      ? [1, 3, 5, 7, 10]
+      : buildPointTicks(state.chartMode === CHART_MODE_GAP ? maxGap : maxPoints, state.chartMode === CHART_MODE_GAP ? 1 : 10);
   const yFor =
     state.chartMode === CHART_MODE_RANK
       ? value => padding.top + ((value - 1) / Math.max(MAX_CHART_LINES - 1, 1)) * chartHeight
-      : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
+      : state.chartMode === CHART_MODE_GAP
+        ? value => padding.top + (value / Math.max(maxGap, 1)) * chartHeight
+        : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
   const selectionX = xFor(selectedIndex);
   const snapshotTickMarkup = Array.from({ length: totalSnapshots }, (_, index) => {
     const x = xFor(index);
@@ -1738,19 +1786,14 @@ function renderChart(model, selectedIndex) {
         return null;
       }
 
-      const selectedValue =
-        state.chartMode === CHART_MODE_RANK
-          ? selectedSnapshotEntry.rank <= MAX_CHART_LINES
-            ? selectedSnapshotEntry.rank
-            : null
-          : selectedSnapshotEntry.snapshot.points;
+      const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
 
-      if (selectedValue === null) {
+      if (selectedValue === null || (state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES)) {
         return null;
       }
 
       const shortLabel = truncateLabel(entry.name, 18);
-      const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode);
+      const valueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
 
       return {
         color,
@@ -1759,7 +1802,12 @@ function renderChart(model, selectedIndex) {
         entryId: entry.id,
         label: shortLabel,
         labelWidth: Math.max(126, Math.min(180, Math.max(shortLabel.length * 7.2, valueText.length * 6.8) + 30)),
-        sortValue: state.chartMode === CHART_MODE_RANK ? selectedSnapshotEntry.rank : -selectedSnapshotEntry.snapshot.points,
+        sortValue:
+          state.chartMode === CHART_MODE_RANK
+            ? selectedSnapshotEntry.rank
+            : state.chartMode === CHART_MODE_GAP
+              ? selectedValue
+              : -selectedSnapshotEntry.snapshot.points,
         targetY: yFor(selectedValue),
         valueText
       };
@@ -1828,41 +1876,32 @@ function renderChart(model, selectedIndex) {
           .map(({ entry, color }) => {
             const path = buildChartPath(
               Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
-                const snapshotEntry = pointsStandingsBySnapshot[snapshotIndex].get(entry.id);
+                const snapshot = pointSnapshots[snapshotIndex];
+                const snapshotEntry = snapshot.entriesById.get(entry.id);
 
                 if (!snapshotEntry) {
                   return null;
                 }
 
-                if (state.chartMode === CHART_MODE_RANK) {
-                  if (snapshotEntry.rank > MAX_CHART_LINES) {
-                    return null;
-                  }
+                const chartValue = getChartModeValue(snapshotEntry, state.chartMode, snapshot.leaderPoints);
 
-                  return {
-                    x: xFor(snapshotIndex),
-                    y: yFor(snapshotEntry.rank)
-                  };
+                if (chartValue === null || (state.chartMode === CHART_MODE_RANK && chartValue > MAX_CHART_LINES)) {
+                  return null;
                 }
 
                 return {
                   x: xFor(snapshotIndex),
-                  y: yFor(snapshotEntry.snapshot.points)
+                  y: yFor(chartValue)
                 };
               })
             );
             const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
-            const selectedValue =
-              state.chartMode === CHART_MODE_RANK
-                ? selectedSnapshotEntry?.rank <= MAX_CHART_LINES
-                  ? selectedSnapshotEntry.rank
-                  : null
-                : selectedSnapshotEntry?.snapshot.points ?? null;
+            const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
 
             return `
               ${path ? `<path class="chart-path" d="${path}" stroke="${color}" />` : ""}
               ${
-                selectedValue !== null
+                selectedValue !== null && !(state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES)
                   ? `<circle class="chart-point" cx="${xFor(selectedIndex)}" cy="${yFor(selectedValue)}" r="5" fill="${color}" />`
                   : ""
               }
@@ -1886,17 +1925,16 @@ function renderChart(model, selectedIndex) {
     .map(({ entry, color }) => {
       const currentSnapshotEntry = currentPointsStandings.get(entry.id);
       const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+      const currentValueText = formatChartValueDisplay(currentSnapshotEntry, state.chartMode, currentPointsSnapshot.leaderPoints);
+      const selectedValueText = formatChartValueDisplay(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
       const meta =
         selectedIndex === model.completedProps.length
           ? state.chartMode === CHART_MODE_RANK
-            ? `Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`
-            : `Now ${formatRankDisplay(currentSnapshotEntry?.rank)} • ${currentSnapshotEntry?.snapshot.points ?? 0} pts`
+            ? `Now ${currentValueText}`
+            : `Now ${currentValueText} • ${formatRankDisplay(currentSnapshotEntry?.rank)}`
           : state.chartMode === CHART_MODE_RANK
-            ? `Selected ${formatRankDisplay(selectedSnapshotEntry?.rank)} • Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`
-            : `Selected ${formatChartValueDisplay(
-                selectedSnapshotEntry,
-                CHART_MODE_POINTS
-              )} • Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`;
+            ? `Selected ${selectedValueText} • Now ${formatRankDisplay(currentSnapshotEntry?.rank)}`
+            : `Selected ${selectedValueText} • Now ${currentValueText}`;
 
       return `
         <div class="legend__item">
@@ -1911,9 +1949,9 @@ function renderChart(model, selectedIndex) {
     .join("");
 }
 
-function buildPointTicks(maxValue) {
+function buildPointTicks(maxValue, minStep = 10) {
   const tickCount = 5;
-  const step = Math.max(10, Math.ceil(maxValue / tickCount / 10) * 10);
+  const step = Math.max(minStep, Math.ceil(maxValue / tickCount / minStep) * minStep);
   const ticks = [];
 
   for (let value = 0; value <= maxValue + step; value += step) {
@@ -2007,9 +2045,8 @@ function renderOutlook(model) {
   const leadScore = model.currentLeaderScore;
   const forecastAvailable = model.forecast.available;
   let forecastCopy = forecastAvailable
-    ? "ESPN’s forecast feed is live, so the list below uses its win probabilities."
-    : model.forecast.message ||
-      "ESPN has not unlocked the permutation forecast yet, so this view uses current score and possible max to mark who is still alive.";
+    ? "This list uses ESPN's current win odds for the loaded entries."
+    : "This list uses current score and remaining possible points to show who still has a path to first.";
 
   if (model.group.limited) {
     forecastCopy += ` ${getLargeGroupNote(model)}`;
@@ -2051,7 +2088,7 @@ function renderOutlook(model) {
                 <span class="stack-list__value">Finished</span>
               </div>
               <p class="stack-list__meta">
-                ESPN possible-max scoring has every other entry eliminated from first place.
+                No other loaded entry can still catch first place.
               </p>
             </div>
           `
@@ -2170,14 +2207,14 @@ function renderDetails(model) {
         model.group.limited
           ? `
             <div class="details-grid__row">
-              <span class="details-grid__label">Loaded now</span>
+              <span class="details-grid__label">Entries shown</span>
               <span class="details-grid__value">${escapeHtml(formatCompactNumber(model.group.loadedEntries))}</span>
             </div>
           `
           : ""
       }
       <div class="details-grid__row">
-        <span class="details-grid__label">Format</span>
+        <span class="details-grid__label">Scoring</span>
         <span class="details-grid__value">ESPN bracket points</span>
       </div>
       <div class="details-grid__row">
@@ -2186,10 +2223,10 @@ function renderDetails(model) {
       </div>
     </div>
     <ul class="details-list">
-      <li>Accuracy is computed as correct picks divided by decided picks at the selected moment.</li>
-      <li>The tracker reconstructs snapshots from public group picks plus completed ESPN challenge propositions.</li>
+      <li>Accuracy is based on decided games at the selected moment.</li>
+      <li>The timeline rewinds the standings game by game through the tournament.</li>
       <li>${escapeHtml(model.group.limited ? getLargeGroupNote(model) : `All ${model.group.loadedEntries} loaded entries are included in this view.`)}</li>
-      <li>The win outlook switches to ESPN forecast percentages automatically if that feed becomes available late in the tournament.</li>
+      <li>When available, the win outlook uses ESPN's current win odds.</li>
     </ul>
   `;
 }
@@ -2215,7 +2252,7 @@ function renderEmptyState() {
   dom.timelineCaption.textContent = "No historical snapshots yet.";
   dom.detailsPanel.innerHTML = `
     <p class="details-panel__empty">
-      Public ESPN challenge data, group picks, and optional forecast data are combined here. Historical snapshots are ordered by completed game tip times.
+      Load a group to see scoring, entry counts, and how the timeline is being read.
     </p>
   `;
   dom.summarySnapshot.textContent = "No group loaded";
@@ -2290,7 +2327,7 @@ async function loadGroup(rawInput, rawSeason) {
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
   state.picksRoundIds = [];
-  setStatus("Loading ESPN challenge and group data…", "loading");
+  setStatus("Loading group data…", "loading");
 
   try {
     const challenge = await fetchChallenge(lookup.season);

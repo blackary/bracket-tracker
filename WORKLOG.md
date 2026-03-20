@@ -2,6 +2,8 @@
 
 ## 2026-03-20
 
+- Added a `Leader Gap` chart mode so the top-10 graph can be viewed relative to the current leader instead of only as raw points or rank.
+- Rewrote the hero, metadata, and helper copy to sound like product copy instead of implementation notes, and added explicit share metadata for cleaner link previews.
 - Split CSV exports into separate pick and result columns for each game, and made downloads default to all loaded rounds instead of the current table filter.
 - Switched the picks matrix to use ESPN's full propositions catalog, so the round filter now exposes all six rounds and supports arbitrary multi-round combinations even before later games tip.
 - Tightened the future-round picks table headers so later rounds show matchup labels plus possible-team counts instead of dumping every potential team into one column header.
