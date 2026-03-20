@@ -1176,7 +1176,7 @@ select {
   gap: 0.35rem;
   align-items: center;
   overflow: visible;
-  padding-bottom: 1.55rem;
+  padding-bottom: 1.2rem;
 }
 
 .timeline-marker {
@@ -1207,20 +1207,63 @@ select {
 
 .timeline-marker__label {
   position: absolute;
-  top: 0.88rem;
+  top: 0.9rem;
   left: 50%;
   color: rgba(24, 32, 44, 0.46);
-  font-size: 0.55rem;
+  font-size: 0.56rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1;
+  letter-spacing: 0.04em;
+  line-height: 1.08;
+  max-width: 4.3rem;
   opacity: 0;
   pointer-events: none;
   text-transform: uppercase;
-  transform: translateX(-24%) rotate(-48deg);
-  transform-origin: top left;
+  transform: translateX(-50%);
   transition: opacity 150ms ease, color 150ms ease;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.timeline-marker__tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.42rem);
+  z-index: 3;
+  display: grid;
+  gap: 0.14rem;
+  min-width: 7.5rem;
+  max-width: min(13rem, 24vw);
+  padding: 0.48rem 0.6rem 0.54rem;
+  border: 1px solid rgba(24, 32, 44, 0.1);
+  border-radius: 0.95rem;
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow:
+    0 12px 28px rgba(37, 30, 19, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(0.18rem);
+  transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease;
+}
+
+.timeline-marker__tooltip-meta {
+  color: var(--ink-faint);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.timeline-marker__tooltip-title {
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  text-wrap: balance;
 }
 
 .timeline-marker:hover .timeline-marker__dot {
@@ -1228,11 +1271,21 @@ select {
   background: rgba(32, 78, 123, 0.55);
 }
 
-.timeline-marker--show-label .timeline-marker__label,
+.timeline-marker--show-label .timeline-marker__label {
+  opacity: 1;
+}
+
 .timeline-marker:hover .timeline-marker__label,
 .timeline-marker.is-active .timeline-marker__label,
 .timeline-marker:focus-visible .timeline-marker__label {
+  opacity: 0.18;
+}
+
+.timeline-marker:hover .timeline-marker__tooltip,
+.timeline-marker.is-active .timeline-marker__tooltip,
+.timeline-marker:focus-visible .timeline-marker__tooltip {
   opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .timeline-marker.is-active .timeline-marker__label {
@@ -1243,6 +1296,33 @@ select {
   transform: scale(1.35);
   background: var(--accent);
   box-shadow: 0 0 0 4px rgba(186, 58, 27, 0.14);
+}
+
+.timeline-marker.is-active .timeline-marker__tooltip {
+  border-color: rgba(186, 58, 27, 0.24);
+}
+
+.timeline-marker--edge-start .timeline-marker__tooltip {
+  left: 0;
+  transform: translateY(0.18rem);
+}
+
+.timeline-marker--edge-start:hover .timeline-marker__tooltip,
+.timeline-marker--edge-start.is-active .timeline-marker__tooltip,
+.timeline-marker--edge-start:focus-visible .timeline-marker__tooltip {
+  transform: translateY(0);
+}
+
+.timeline-marker--edge-end .timeline-marker__tooltip {
+  right: 0;
+  left: auto;
+  transform: translateY(0.18rem);
+}
+
+.timeline-marker--edge-end:hover .timeline-marker__tooltip,
+.timeline-marker--edge-end.is-active .timeline-marker__tooltip,
+.timeline-marker--edge-end:focus-visible .timeline-marker__tooltip {
+  transform: translateY(0);
 }
 
 .timeline-marker--empty {
@@ -1914,7 +1994,7 @@ select {
 
   .timeline-markers {
     gap: 0.25rem;
-    padding-bottom: 1.3rem;
+    padding-bottom: 1.05rem;
   }
 
   .timeline-marker {
@@ -1927,9 +2007,24 @@ select {
   }
 
   .timeline-marker__label {
-    top: 1rem;
+    top: 1.02rem;
     font-size: 0.5rem;
-    transform: translateX(-16%) rotate(-48deg);
+    max-width: 3.3rem;
+    transform: translateX(-50%);
+  }
+
+  .timeline-marker__tooltip {
+    min-width: 6.6rem;
+    max-width: min(10.5rem, 62vw);
+    padding: 0.42rem 0.52rem 0.48rem;
+  }
+
+  .timeline-marker__tooltip-meta {
+    font-size: 0.58rem;
+  }
+
+  .timeline-marker__tooltip-title {
+    font-size: 0.68rem;
   }
 
   .timeline-controls {

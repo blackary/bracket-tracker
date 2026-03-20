@@ -30,6 +30,7 @@
 - Restored lead-change and biggest-mover snapshot stats inside the chart strip, added visible game labels to the chart timeline ticks, and made scrub updates lighter by rerendering only snapshot-dependent sections on animation frames.
 - Compressed the chart card header and live-snapshot strip so the graph appears sooner without removing the scrub-aware stats beside it.
 - Removed the misleading public-group wording from the site copy and docs, since group links and IDs work regardless of ESPN's privacy label.
+- Reworked the chart timeline ticks so the default labels are horizontal and sparser, and added readable game tooltips on hover, focus, and selection.
 
 ## 2026-03-19
 

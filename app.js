@@ -1427,10 +1427,24 @@ function formatTimelineMatchupLabel(proposition) {
   if (namedTeams.length === 2) {
     const left = namedTeams[0].abbrev || truncateLabel(namedTeams[0].name, 4);
     const right = namedTeams[1].abbrev || truncateLabel(namedTeams[1].name, 4);
-    return `${left}@${right}`;
+    return `${left}-${right}`;
   }
 
-  return truncateLabel(String(proposition?.name || "Game").replace(/\s+/g, ""), 10);
+  return truncateLabel(String(proposition?.name || "Game").replace(/\s+/g, " "), 12);
+}
+
+function getTimelineTooltipMeta(model, proposition) {
+  const round = model?.rounds?.find(candidate => Number(candidate.id) === Number(proposition?.scoringPeriodId));
+  const namedTeams = (proposition?.teams || []).filter(team => team?.abbrev || team?.name);
+  const matchup =
+    namedTeams.length === 2
+      ? `${namedTeams[0].name || namedTeams[0].abbrev} vs ${namedTeams[1].name || namedTeams[1].abbrev}`
+      : String(proposition?.name || "Game");
+
+  return {
+    meta: round?.label || `Game ${proposition?.id || ""}`.trim(),
+    title: truncateLabel(matchup, 48)
+  };
 }
 
 function shouldShowTimelineMarkerLabel(totalSnapshots, index, selectedIndex) {
@@ -1441,15 +1455,15 @@ function shouldShowTimelineMarkerLabel(totalSnapshots, index, selectedIndex) {
   const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
 
   if (viewportWidth <= 820) {
-    const interval = totalSnapshots <= 10 ? 2 : totalSnapshots <= 20 ? 4 : 8;
+    const interval = totalSnapshots <= 8 ? 2 : totalSnapshots <= 16 ? 4 : 6;
     return index % interval === 0;
   }
 
-  if (totalSnapshots <= 18) {
+  if (totalSnapshots <= 12) {
     return true;
   }
 
-  const interval = totalSnapshots <= 32 ? 4 : 8;
+  const interval = totalSnapshots <= 24 ? 3 : totalSnapshots <= 36 ? 4 : 8;
   return index % interval === 0;
 }
 
@@ -1468,20 +1482,25 @@ function getTimelineMarkerMeta(model, index) {
     return {
       ariaLabel: `Start of bracket replay, before ${model.completedProps[0].name}`,
       detailLabel: `Before ${model.completedProps[0].name}`,
-      shortLabel: "Start"
+      shortLabel: "Start",
+      tooltipLabel: model.completedProps[0].name,
+      tooltipMeta: "Opening board"
     };
   }
 
   const proposition = model.completedProps[index - 1];
+  const tooltip = getTimelineTooltipMeta(model, proposition);
   const afterLabel =
     index < completedCount
       ? `After ${proposition.name} / before ${model.completedProps[index].name}`
       : `Now after ${proposition.name}`;
 
   return {
-    ariaLabel: afterLabel,
-    detailLabel: afterLabel,
-    shortLabel: formatTimelineMatchupLabel(proposition)
+    ariaLabel: `${afterLabel}. ${tooltip.meta}. ${tooltip.title}`,
+    detailLabel: `${tooltip.meta} • ${tooltip.title}`,
+    shortLabel: formatTimelineMatchupLabel(proposition),
+    tooltipLabel: tooltip.title,
+    tooltipMeta: tooltip.meta
   };
 }
 
@@ -1908,14 +1927,14 @@ function syncTimelineScrubber(model, snapshotIndex) {
   dom.timelineMarkers.innerHTML = Array.from({ length: totalSnapshots }, (_, index) => {
     const marker = getTimelineMarkerMeta(model, index);
     const showLabel = shouldShowTimelineMarkerLabel(totalSnapshots, index, snapshotIndex);
+    const edgeClass = index <= 1 ? "timeline-marker--edge-start" : index >= totalSnapshots - 2 ? "timeline-marker--edge-end" : "";
 
     return `
       <button
-        class="timeline-marker ${index === snapshotIndex ? "is-active" : ""} ${showLabel ? "timeline-marker--show-label" : ""}"
+        class="timeline-marker ${index === snapshotIndex ? "is-active" : ""} ${showLabel ? "timeline-marker--show-label" : ""} ${edgeClass}"
         type="button"
         data-snapshot-index="${index}"
         aria-label="${escapeHtml(marker.ariaLabel)}"
-        title="${escapeHtml(marker.detailLabel)}"
       ></button>
     `;
   }).join("");
@@ -1925,6 +1944,10 @@ function syncTimelineScrubber(model, snapshotIndex) {
     button.innerHTML = `
       <span class="timeline-marker__dot" aria-hidden="true"></span>
       <span class="timeline-marker__label" aria-hidden="true">${escapeHtml(marker.shortLabel)}</span>
+      <span class="timeline-marker__tooltip" aria-hidden="true">
+        <span class="timeline-marker__tooltip-meta">${escapeHtml(marker.tooltipMeta)}</span>
+        <span class="timeline-marker__tooltip-title">${escapeHtml(marker.tooltipLabel)}</span>
+      </span>
     `;
   });
 }
