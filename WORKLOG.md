@@ -16,3 +16,4 @@
 - Reworked the phone layout to feel more native, with swipeable summary cards, a compact chart toolbar, scrolling legend chips, safer touch spacing, and another desktop and mobile screenshot pass.
 - Renamed the app to Bracket Tracker, changed the example button copy, kept chart colors stable by bracket across snapshots, added recent-group history in localStorage, and replaced mobile CSV export with a share-or-export-sheet fallback.
 - Tried to cap large groups at 1000 loaded entries, then verified that ESPN's current public group feed for the SportsCenter example only returns 100 entries even when asked for more, so the app now reports that limit honestly in the UI.
+- Added direct pointer scrubbing on the chart plot area itself so dragging or tapping on the graph updates the selected snapshot without needing the lower slider.

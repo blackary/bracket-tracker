@@ -521,9 +521,21 @@ select {
   opacity: 0.2;
 }
 
+.chart-hitbox {
+  fill: transparent;
+  cursor: ew-resize;
+  pointer-events: all;
+  touch-action: none;
+}
+
 .chart-point {
   stroke: #fff8ef;
   stroke-width: 2;
+}
+
+.chart-panel.is-scrubbing,
+.chart-panel.is-scrubbing .chart-hitbox {
+  cursor: ew-resize;
 }
 
 .chart-label-box {

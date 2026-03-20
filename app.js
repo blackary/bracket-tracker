@@ -35,6 +35,7 @@ const LEADER_COLORS = [
 
 const state = {
   chartMode: CHART_MODE_RANK,
+  chartPointerId: null,
   exportSheetUrl: null,
   loading: false,
   metric: METRIC_POINTS,
@@ -1022,6 +1023,34 @@ function buildChartPath(points) {
   return path.trim();
 }
 
+function getChartHitbox() {
+  return dom.chartPanel.querySelector(".chart-hitbox");
+}
+
+function getChartSnapshotIndexFromClientX(clientX) {
+  if (!state.model) {
+    return null;
+  }
+
+  const hitbox = getChartHitbox();
+
+  if (!hitbox) {
+    return null;
+  }
+
+  const rect = hitbox.getBoundingClientRect();
+
+  if (!rect.width) {
+    return null;
+  }
+
+  const totalSnapshots = state.model.completedProps.length + 1;
+  const clampedX = Math.max(rect.left, Math.min(rect.right, clientX));
+  const ratio = (clampedX - rect.left) / rect.width;
+
+  return Math.round(ratio * Math.max(totalSnapshots - 1, 0));
+}
+
 function renderLeaderBadgeList(entries, maxVisible = 5) {
   const visible = entries.slice(0, maxVisible);
   const overflow = entries.length - visible.length;
@@ -1302,6 +1331,7 @@ function renderChart(model, selectedIndex) {
   const chartEntries = getChartEntries(model, selectedIndex);
 
   if (!chartEntries.length || totalSnapshots <= 1) {
+    finishChartScrub();
     dom.chartPanel.className = "chart-panel chart-panel--empty";
     dom.chartPanel.textContent = "Load a group with completed games to render the top-10 chart.";
     dom.leaderLegend.innerHTML = "";
@@ -1498,6 +1528,14 @@ function renderChart(model, selectedIndex) {
             `;
           })
           .join("")}
+        <rect
+          class="chart-hitbox"
+          x="${padding.left}"
+          y="${padding.top}"
+          width="${chartWidth}"
+          height="${chartHeight}"
+          rx="16"
+        />
         ${calloutMarkup}
       </svg>
     </div>
@@ -1813,6 +1851,7 @@ function renderDetails(model) {
 }
 
 function renderEmptyState() {
+  finishChartScrub();
   dom.chartPanel.className = "chart-panel chart-panel--empty";
   dom.chartPanel.textContent = "Load a group to render the top-10 chart.";
   dom.chartScrubber.style.setProperty("--plot-left", "4.3%");
@@ -1889,6 +1928,7 @@ async function loadGroup(rawInput, rawSeason) {
   const lookup = parseGroupLookup(rawInput, rawSeason);
 
   closeMobileExportSheet();
+  finishChartScrub();
   state.loading = true;
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
@@ -2208,9 +2248,24 @@ function handlePicksRoundChange(event) {
   renderPicksTable(state.model);
 }
 
-function handleTimelineInput(event) {
-  state.selectedIndex = Number(event.target.value);
+function setSelectedIndex(nextIndex) {
+  if (!state.model) {
+    return;
+  }
+
+  const max = state.model.completedProps.length;
+  const safeIndex = Math.max(0, Math.min(max, Number(nextIndex) || 0));
+
+  if (safeIndex === state.selectedIndex) {
+    return;
+  }
+
+  state.selectedIndex = safeIndex;
   render();
+}
+
+function handleTimelineInput(event) {
+  setSelectedIndex(event.target.value);
 }
 
 function handleTimelineMarkerClick(event) {
@@ -2220,8 +2275,7 @@ function handleTimelineMarkerClick(event) {
     return;
   }
 
-  state.selectedIndex = Number(button.dataset.snapshotIndex);
-  render();
+  setSelectedIndex(button.dataset.snapshotIndex);
 }
 
 function adjustTimeline(delta) {
@@ -2229,9 +2283,67 @@ function adjustTimeline(delta) {
     return;
   }
 
-  const max = state.model.completedProps.length;
-  state.selectedIndex = Math.max(0, Math.min(max, state.selectedIndex + delta));
-  render();
+  setSelectedIndex(state.selectedIndex + delta);
+}
+
+function finishChartScrub(pointerId = state.chartPointerId) {
+  if (pointerId === null || pointerId !== state.chartPointerId) {
+    return;
+  }
+
+  try {
+    if (dom.chartPanel.hasPointerCapture?.(pointerId)) {
+      dom.chartPanel.releasePointerCapture(pointerId);
+    }
+  } catch (error) {
+    // Ignore release failures; capture is only a drag enhancement.
+  }
+
+  state.chartPointerId = null;
+  dom.chartPanel.classList.remove("is-scrubbing");
+}
+
+function handleChartPointerDown(event) {
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+
+  if (!event.target.closest(".chart-hitbox")) {
+    return;
+  }
+
+  state.chartPointerId = event.pointerId;
+  dom.chartPanel.classList.add("is-scrubbing");
+  try {
+    dom.chartPanel.setPointerCapture?.(event.pointerId);
+  } catch (error) {
+    // Ignore capture failures; direct pointer movement still works.
+  }
+  const nextIndex = getChartSnapshotIndexFromClientX(event.clientX);
+
+  if (nextIndex !== null) {
+    setSelectedIndex(nextIndex);
+  }
+
+  event.preventDefault();
+}
+
+function handleChartPointerMove(event) {
+  if (event.pointerId !== state.chartPointerId) {
+    return;
+  }
+
+  const nextIndex = getChartSnapshotIndexFromClientX(event.clientX);
+
+  if (nextIndex !== null) {
+    setSelectedIndex(nextIndex);
+  }
+
+  event.preventDefault();
+}
+
+function handleChartPointerUp(event) {
+  finishChartScrub(event.pointerId);
 }
 
 function init() {
@@ -2253,6 +2365,11 @@ function init() {
   dom.timelineMarkers.addEventListener("click", handleTimelineMarkerClick);
   dom.timelinePrev.addEventListener("click", () => adjustTimeline(-1));
   dom.timelineNext.addEventListener("click", () => adjustTimeline(1));
+  dom.chartPanel.addEventListener("pointerdown", handleChartPointerDown);
+  dom.chartPanel.addEventListener("pointermove", handleChartPointerMove);
+  dom.chartPanel.addEventListener("pointerup", handleChartPointerUp);
+  dom.chartPanel.addEventListener("pointercancel", handleChartPointerUp);
+  dom.chartPanel.addEventListener("lostpointercapture", handleChartPointerUp);
   dom.exportSheetClose?.addEventListener("click", closeMobileExportSheet);
   dom.exportSheet?.addEventListener("click", event => {
     if (event.target === dom.exportSheet) {
