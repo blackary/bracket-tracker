@@ -17,6 +17,7 @@
 - Added a short feature-pill row in the hero to give the landing area more structure without changing the app flow.
 - Validated the styling pass against the live SportsCenter example in headless Chrome with fresh desktop and mobile screenshots plus a ready-state DOM check.
 - Added a compact live snapshot strip inside the chart card so the key state stays visible beside the graph while scrubbing, and checked it on desktop and mobile with live interaction tests.
+- Added a display-only tie spread to the chart so brackets with the same score still render as distinct colored lines instead of collapsing into a single stroke.
 
 ## 2026-03-19
 

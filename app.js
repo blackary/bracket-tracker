@@ -1758,6 +1758,72 @@ function buildChartPath(points) {
   return path.trim();
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function buildChartDisplayPoints(leaderEntries, pointSnapshots, chartMode, xFor, yFor, minY, maxY, tieStep = 3) {
+  const displayPointsByEntryId = new Map(leaderEntries.map(({ entry }) => [entry.id, Array(pointSnapshots.length).fill(null)]));
+
+  pointSnapshots.forEach((snapshot, snapshotIndex) => {
+    const visiblePoints = leaderEntries
+      .map(({ entry }, orderIndex) => {
+        const snapshotEntry = snapshot.entriesById.get(entry.id);
+
+        if (!snapshotEntry) {
+          return null;
+        }
+
+        const chartValue = getChartModeValue(snapshotEntry, chartMode, snapshot.leaderPoints);
+
+        if (chartValue === null || (chartMode === CHART_MODE_RANK && chartValue > MAX_CHART_LINES)) {
+          return null;
+        }
+
+        return {
+          baseY: yFor(chartValue),
+          chartValue,
+          entryId: entry.id,
+          orderIndex
+        };
+      })
+      .filter(Boolean);
+
+    const groupedPoints = new Map();
+    visiblePoints.forEach(point => {
+      const key = String(point.chartValue);
+
+      if (!groupedPoints.has(key)) {
+        groupedPoints.set(key, []);
+      }
+
+      groupedPoints.get(key).push(point);
+    });
+
+    groupedPoints.forEach(group => {
+      const sortedGroup = [...group].sort((left, right) => left.orderIndex - right.orderIndex);
+      const midpoint = (sortedGroup.length - 1) / 2;
+      const offsets = sortedGroup.map((_, index) => (sortedGroup.length > 1 ? (index - midpoint) * tieStep : 0));
+      const baseY = sortedGroup[0]?.baseY ?? minY;
+      const lowestY = baseY + offsets[0];
+      const highestY = baseY + offsets[offsets.length - 1];
+      const groupShift = lowestY < minY ? minY - lowestY : highestY > maxY ? maxY - highestY : 0;
+
+      sortedGroup.forEach((point, index) => {
+        const offset = offsets[index];
+
+        displayPointsByEntryId.get(point.entryId)[snapshotIndex] = {
+          rawValue: point.chartValue,
+          x: xFor(snapshotIndex),
+          y: clamp(point.baseY + offset + groupShift, minY, maxY)
+        };
+      });
+    });
+  });
+
+  return displayPointsByEntryId;
+}
+
 function getChartHitbox() {
   return dom.chartPanel.querySelector(".chart-hitbox");
 }
@@ -2251,6 +2317,16 @@ function renderChart(model, selectedIndex) {
       : state.chartMode === CHART_MODE_GAP
         ? value => padding.top + (value / Math.max(maxGap, 1)) * chartHeight
         : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
+  const displayPointsByEntryId = buildChartDisplayPoints(
+    leaderEntries,
+    pointSnapshots,
+    state.chartMode,
+    xFor,
+    yFor,
+    padding.top + 4,
+    height - padding.bottom - 4,
+    compact ? 2.5 : 3.5
+  );
   const selectionX = xFor(selectedIndex);
   const snapshotTickMarkup = Array.from({ length: totalSnapshots }, (_, index) => {
     const x = xFor(index);
@@ -2268,8 +2344,9 @@ function renderChart(model, selectedIndex) {
   const calloutCandidates = leaderEntries
     .map(({ entry, color }) => {
       const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
+      const selectedDisplayPoint = displayPointsByEntryId.get(entry.id)?.[selectedIndex];
 
-      if (!selectedSnapshotEntry) {
+      if (!selectedSnapshotEntry || !selectedDisplayPoint) {
         return null;
       }
 
@@ -2284,8 +2361,8 @@ function renderChart(model, selectedIndex) {
 
       return {
         color,
-        currentX: xFor(selectedIndex),
-        currentY: yFor(selectedValue),
+        currentX: selectedDisplayPoint.x,
+        currentY: selectedDisplayPoint.y,
         entryId: entry.id,
         label: shortLabel,
         labelWidth: Math.max(126, Math.min(180, Math.max(shortLabel.length * 7.2, valueText.length * 6.8) + 30)),
@@ -2295,7 +2372,7 @@ function renderChart(model, selectedIndex) {
             : state.chartMode === CHART_MODE_GAP
               ? selectedValue
               : -selectedSnapshotEntry.snapshot.points,
-        targetY: yFor(selectedValue),
+        targetY: selectedDisplayPoint.y,
         valueText
       };
     })
@@ -2361,35 +2438,19 @@ function renderChart(model, selectedIndex) {
         <line class="chart-selection-line" x1="${selectionX}" x2="${selectionX}" y1="${padding.top}" y2="${height - padding.bottom}" />
         ${leaderEntries
           .map(({ entry, color }) => {
-            const path = buildChartPath(
-              Array.from({ length: totalSnapshots }, (_, snapshotIndex) => {
-                const snapshot = pointSnapshots[snapshotIndex];
-                const snapshotEntry = snapshot.entriesById.get(entry.id);
-
-                if (!snapshotEntry) {
-                  return null;
-                }
-
-                const chartValue = getChartModeValue(snapshotEntry, state.chartMode, snapshot.leaderPoints);
-
-                if (chartValue === null || (state.chartMode === CHART_MODE_RANK && chartValue > MAX_CHART_LINES)) {
-                  return null;
-                }
-
-                return {
-                  x: xFor(snapshotIndex),
-                  y: yFor(chartValue)
-                };
-              })
-            );
+            const displayPoints = displayPointsByEntryId.get(entry.id) || [];
+            const path = buildChartPath(displayPoints);
             const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
             const selectedValue = getChartModeValue(selectedSnapshotEntry, state.chartMode, selectedPointsSnapshot.leaderPoints);
+            const selectedDisplayPoint = displayPoints[selectedIndex];
 
             return `
               ${path ? `<path class="chart-path" d="${path}" stroke="${color}" />` : ""}
               ${
-                selectedValue !== null && !(state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES)
-                  ? `<circle class="chart-point" cx="${xFor(selectedIndex)}" cy="${yFor(selectedValue)}" r="5" fill="${color}" />`
+                selectedValue !== null &&
+                !(state.chartMode === CHART_MODE_RANK && selectedValue > MAX_CHART_LINES) &&
+                selectedDisplayPoint
+                  ? `<circle class="chart-point" cx="${selectedDisplayPoint.x}" cy="${selectedDisplayPoint.y}" r="5" fill="${color}" />`
                   : ""
               }
             `;
