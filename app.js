@@ -14,7 +14,10 @@ const METRIC_ACCURACY = "accuracy";
 const CHART_MODE_RANK = "rank";
 const CHART_MODE_POINTS = "points";
 const CHART_MODE_GAP = "gap";
+const OUTLOOK_MODE_ESPN = "espn";
+const OUTLOOK_MODE_PROJECTION = "projection";
 const RECENT_GROUPS_STORAGE_KEY = "bracket-tracker/recent-groups/v1";
+const IMPORTED_ODDS_STORAGE_KEY = "bracket-tracker/imported-odds/v1";
 const LEADER_COLORS = [
   "#ba3a1b",
   "#204e7b",
@@ -33,13 +36,39 @@ const LEADER_COLORS = [
   "#9a6a2a",
   "#7f4ba0"
 ];
+const TEAM_KEY_ALIASES = {
+  byu: "brighamyoung",
+  csub: "calstatebakersfield",
+  gcu: "grandcanyon",
+  lsu: "louisianastate",
+  msst: "mississippistate",
+  missst: "mississippistate",
+  mississippi: "olemiss",
+  olemiss: "olemiss",
+  smu: "southernmethodist",
+  stjohns: "saintjohns",
+  sdst: "southdakotastate",
+  texasam: "texasam",
+  tcu: "texaschristian",
+  ucla: "ucla",
+  uconn: "connecticut",
+  ucsd: "californiasandiego",
+  unc: "northcarolina",
+  uncw: "northcarolinawilmington",
+  unlv: "nevadalasvegas",
+  usc: "southerncalifornia",
+  usu: "utahstate",
+  vcu: "virginiacommonwealth"
+};
 
 const state = {
   chartMode: CHART_MODE_RANK,
   chartPointerId: null,
   exportSheetUrl: null,
+  importedOdds: loadImportedOdds(),
   loading: false,
   metric: METRIC_POINTS,
+  outlookMode: OUTLOOK_MODE_ESPN,
   picksRoundIds: [],
   season: getDefaultSeason(),
   recentGroups: loadRecentGroups(),
@@ -65,7 +94,12 @@ const dom = {
   groupInput: document.getElementById("group-input"),
   leaderLegend: document.getElementById("leader-legend"),
   metricButtons: Array.from(document.querySelectorAll("[data-metric]")),
+  oddsFileInput: document.getElementById("odds-file-input"),
+  oddsStatus: document.getElementById("odds-status"),
   outlookPanel: document.getElementById("outlook-panel"),
+  outlookModeButtons: Array.from(document.querySelectorAll("[data-outlook-mode]")),
+  importOddsButton: document.getElementById("import-odds-button"),
+  clearOddsButton: document.getElementById("clear-odds-button"),
   picksPanel: document.getElementById("picks-panel"),
   picksRoundFilter: document.getElementById("picks-round-filter"),
   picksRoundOptions: document.getElementById("picks-round-options"),
@@ -137,6 +171,41 @@ function normalizeRecentGroup(value) {
 function persistRecentGroups() {
   try {
     window.localStorage.setItem(RECENT_GROUPS_STORAGE_KEY, JSON.stringify(state.recentGroups));
+  } catch (error) {
+    // Ignore storage failures; the app still works without persistence.
+  }
+}
+
+function loadImportedOdds() {
+  try {
+    const raw = window.localStorage.getItem(IMPORTED_ODDS_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    return hydrateImportedOddsRecord(JSON.parse(raw));
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistImportedOdds() {
+  try {
+    if (!state.importedOdds) {
+      window.localStorage.removeItem(IMPORTED_ODDS_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      IMPORTED_ODDS_STORAGE_KEY,
+      JSON.stringify({
+        importedAt: state.importedOdds.importedAt,
+        season: state.importedOdds.season,
+        source: state.importedOdds.source,
+        teams: state.importedOdds.teams
+      })
+    );
   } catch (error) {
     // Ignore storage failures; the app still works without persistence.
   }
@@ -309,6 +378,224 @@ function safeParseJson(text) {
   } catch (error) {
     return {};
   }
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && char === ",") {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if (!inQuotes && (char === "\n" || char === "\r")) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  return rows.filter(columns => columns.some(value => String(value ?? "").trim()));
+}
+
+function normalizeHeaderKey(value) {
+  return String(value ?? "")
+    .replace(/^\ufeff/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[%()]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function normalizeTeamKey(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\bsaint\b/g, "st")
+    .replace(/'/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function canonicalizeTeamKey(value) {
+  const normalized = normalizeTeamKey(value);
+  return TEAM_KEY_ALIASES[normalized] || normalized;
+}
+
+function getOutcomeMatchKeys(team) {
+  const keys = new Set();
+
+  [team?.name, team?.abbrev].forEach(value => {
+    const canonical = canonicalizeTeamKey(value);
+
+    if (canonical) {
+      keys.add(canonical);
+    }
+  });
+
+  return [...keys];
+}
+
+function parsePercentageValue(value) {
+  const normalized = String(value ?? "").replace(/%/g, "").trim();
+  const parsed = Number(normalized);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed > 1 ? parsed / 100 : parsed;
+}
+
+function hydrateImportedOddsRecord(record) {
+  const season = Number(record?.season);
+  const teams = Array.isArray(record?.teams)
+    ? record.teams
+        .map(team => {
+          const name = String(team?.name || "").trim();
+          const seed = String(team?.seed ?? "").trim();
+          const roundProbabilities = Object.fromEntries(
+            Object.entries(team?.roundProbabilities || {})
+              .map(([roundIndex, value]) => [Number(roundIndex), Number(value)])
+              .filter(([, value]) => Number.isFinite(value))
+          );
+
+          if (!name || !Object.keys(roundProbabilities).length) {
+            return null;
+          }
+
+          return {
+            name,
+            seed,
+            roundProbabilities
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  if (!Number.isFinite(season) || !teams.length) {
+    return null;
+  }
+
+  const byKey = new Map();
+  teams.forEach(team => {
+    const canonical = canonicalizeTeamKey(team.name);
+
+    if (!canonical) {
+      return;
+    }
+
+    if (!byKey.has(canonical)) {
+      byKey.set(canonical, []);
+    }
+
+    byKey.get(canonical).push(team);
+  });
+
+  return {
+    byKey,
+    importedAt: String(record?.importedAt || new Date().toISOString()),
+    season,
+    source: String(record?.source || "EvanMiya Tourney Odds"),
+    teams
+  };
+}
+
+function parseImportedOddsCsv(text, season) {
+  const rows = parseCsvRows(text);
+
+  if (rows.length < 2) {
+    throw new Error("That CSV did not include any EvanMiya odds rows.");
+  }
+
+  const headerIndexByKey = new Map(rows[0].map((header, index) => [normalizeHeaderKey(header), index]));
+  const requiredColumns = {
+    team: headerIndexByKey.get("team"),
+    seed: headerIndexByKey.get("seed"),
+    round32: headerIndexByKey.get("round 32"),
+    sweet16: headerIndexByKey.get("sweet 16"),
+    elite8: headerIndexByKey.get("elite eight"),
+    final4: headerIndexByKey.get("final four"),
+    titleGame: headerIndexByKey.get("title game"),
+    champ: headerIndexByKey.get("champ")
+  };
+
+  if (Object.values(requiredColumns).some(value => value === undefined)) {
+    throw new Error("That file does not look like EvanMiya's tournament-odds export.");
+  }
+
+  const teams = rows
+    .slice(1)
+    .map(columns => {
+      const name = String(columns[requiredColumns.team] || "").trim();
+
+      if (!name) {
+        return null;
+      }
+
+      const roundProbabilities = {
+        1: parsePercentageValue(columns[requiredColumns.round32]),
+        2: parsePercentageValue(columns[requiredColumns.sweet16]),
+        3: parsePercentageValue(columns[requiredColumns.elite8]),
+        4: parsePercentageValue(columns[requiredColumns.final4]),
+        5: parsePercentageValue(columns[requiredColumns.titleGame]),
+        6: parsePercentageValue(columns[requiredColumns.champ])
+      };
+
+      return {
+        name,
+        roundProbabilities,
+        seed: String(columns[requiredColumns.seed] ?? "").trim()
+      };
+    })
+    .filter(team => team && Object.values(team.roundProbabilities).some(value => value !== null));
+
+  const hydrated = hydrateImportedOddsRecord({
+    importedAt: new Date().toISOString(),
+    season,
+    source: "EvanMiya Tourney Odds",
+    teams
+  });
+
+  if (!hydrated || hydrated.teams.length < 16) {
+    throw new Error("The imported odds file did not contain enough team rows to use.");
+  }
+
+  return hydrated;
 }
 
 async function fetchChallenge(season) {
@@ -804,6 +1091,132 @@ function buildModel(challenge, groupResponse, forecastResponse) {
   return model;
 }
 
+function resolveImportedOddsTeam(importedOdds, team) {
+  if (!importedOdds) {
+    return null;
+  }
+
+  const directMatch = getOutcomeMatchKeys(team)
+    .flatMap(key => importedOdds.byKey.get(key) || [])
+    .find(Boolean);
+
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const seed = String(team?.seed ?? "").trim();
+  const normalizedNames = [team?.name, team?.abbrev]
+    .map(value => canonicalizeTeamKey(value))
+    .filter(Boolean);
+
+  return importedOdds.teams.find(candidate => {
+    const candidateKey = canonicalizeTeamKey(candidate.name);
+    const seedMatch = !seed || !candidate.seed || seed === candidate.seed;
+
+    return seedMatch && normalizedNames.some(key => key.includes(candidateKey) || candidateKey.includes(key));
+  }) || null;
+}
+
+function buildImportedOddsProjection(model, importedOdds) {
+  if (!importedOdds) {
+    return null;
+  }
+
+  if (Number(importedOdds.season) !== Number(model.challenge.season)) {
+    return {
+      reason: `Imported odds are for ${importedOdds.season}, but this group is from ${model.challenge.season}.`
+    };
+  }
+
+  const roundOrderById = new Map(model.rounds.map((round, index) => [Number(round.id), index + 1]));
+  const oddsTeamByOutcomeId = new Map();
+  let matchedTeams = 0;
+  let unmatchedTeams = 0;
+
+  model.teamByOutcomeId.forEach((team, outcomeId) => {
+    const resolvedTeam = resolveImportedOddsTeam(importedOdds, team);
+
+    if (resolvedTeam) {
+      oddsTeamByOutcomeId.set(outcomeId, resolvedTeam);
+      matchedTeams += 1;
+      return;
+    }
+
+    unmatchedTeams += 1;
+  });
+
+  const pendingPropositions = model.pickPropositions.filter(proposition => proposition.status !== "COMPLETE");
+  const standings = model.entries
+    .map(entry => {
+      let expectedRemainingPoints = 0;
+      let matchedPicks = 0;
+      let unresolvedPicks = 0;
+
+      pendingPropositions.forEach(proposition => {
+        const pick = entry.picksByPropositionId.get(proposition.id);
+        const pickedOutcome = pick?.outcomesPicked?.[0];
+        const roundOrder = roundOrderById.get(Number(proposition.scoringPeriodId));
+        const teamOdds = pickedOutcome ? oddsTeamByOutcomeId.get(pickedOutcome.outcomeId) : null;
+        const winProbability = teamOdds && roundOrder ? teamOdds.roundProbabilities[roundOrder] : null;
+
+        if (typeof winProbability !== "number") {
+          if (pickedOutcome) {
+            unresolvedPicks += 1;
+          }
+          return;
+        }
+
+        matchedPicks += 1;
+        expectedRemainingPoints += (model.pointValueByPeriod.get(Number(proposition.scoringPeriodId)) || 0) * winProbability;
+      });
+
+      return {
+        coveragePct: matchedPicks + unresolvedPicks ? percentage(matchedPicks, matchedPicks + unresolvedPicks) : 100,
+        currentPoints: entry.currentPoints,
+        currentRank: entry.currentRank,
+        entryId: entry.id,
+        expectedRemainingPoints,
+        matchedPicks,
+        projectedPoints: entry.currentPoints + expectedRemainingPoints,
+        unresolvedPicks
+      };
+    })
+    .sort((left, right) => {
+      if (left.projectedPoints !== right.projectedPoints) {
+        return right.projectedPoints - left.projectedPoints;
+      }
+
+      if (left.expectedRemainingPoints !== right.expectedRemainingPoints) {
+        return right.expectedRemainingPoints - left.expectedRemainingPoints;
+      }
+
+      if (left.currentPoints !== right.currentPoints) {
+        return right.currentPoints - left.currentPoints;
+      }
+
+      return left.currentRank - right.currentRank;
+    })
+    .map((entry, index, entries) => ({
+      ...entry,
+      projectedBack: Math.max(entries[0].projectedPoints - entry.projectedPoints, 0),
+      projectedRank: index + 1
+    }));
+
+  return {
+    importedAt: importedOdds.importedAt,
+    matchedTeams,
+    reason: "",
+    source: importedOdds.source,
+    standings,
+    teamsCoveredPct: matchedTeams + unmatchedTeams ? percentage(matchedTeams, matchedTeams + unmatchedTeams) : 100,
+    unmatchedTeams
+  };
+}
+
+function applyImportedOddsToModel(model) {
+  model.oddsProjection = buildImportedOddsProjection(model, state.importedOdds);
+}
+
 function getSnapshotLabel(model, index) {
   const completedCount = model.completedProps.length;
 
@@ -1032,6 +1445,15 @@ function formatTieLabel(count) {
 
 function formatMarginDisplay(value, metric) {
   return metric === METRIC_ACCURACY ? `${value.toFixed(1)} pp` : `${value} pts`;
+}
+
+function formatProjectedPoints(value) {
+  return `${value.toFixed(1)} pts`;
+}
+
+function formatExpectedRemainingPoints(value) {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)} expected`;
 }
 
 function formatRankDisplay(rank) {
@@ -2013,7 +2435,15 @@ function renderStandings(model, standings) {
   `;
 }
 
-function renderOutlook(model) {
+function getActiveOutlookMode(model = state.model) {
+  if (state.outlookMode === OUTLOOK_MODE_PROJECTION && model?.oddsProjection?.standings?.length) {
+    return OUTLOOK_MODE_PROJECTION;
+  }
+
+  return OUTLOOK_MODE_ESPN;
+}
+
+function renderEspnOutlook(model) {
   const currentStandings = getSnapshotStandings(model, model.completedProps.length, METRIC_POINTS);
   const aliveEntries = currentStandings.filter(entry => entry.stillAlive);
   const rankedAlive = [...aliveEntries].sort((left, right) => {
@@ -2034,15 +2464,14 @@ function renderOutlook(model) {
   const leadScore = model.currentLeaderScore;
   const forecastAvailable = model.forecast.available;
   let forecastCopy = forecastAvailable
-    ? "This list uses ESPN's current win odds for the loaded entries."
-    : "This list uses current score and remaining possible points to show who still has a path to first.";
+    ? "This view uses ESPN's current win odds for the loaded entries."
+    : "This view uses current score and remaining possible points to show who still has a path to first.";
 
   if (model.group.limited) {
     forecastCopy += ` ${getLargeGroupNote(model)}`;
   }
 
-  dom.outlookPanel.className = "outlook-panel";
-  dom.outlookPanel.innerHTML = `
+  return `
     <p class="outlook-note">${escapeHtml(forecastCopy)}</p>
     <div class="stack-list">
       ${
@@ -2057,6 +2486,7 @@ function renderOutlook(model) {
 
                 return `
                   <div class="stack-list__item">
+                    <p class="stack-list__kicker">ESPN outlook</p>
                     <div class="stack-list__title-row">
                       <span class="stack-list__title">${escapeHtml(entry.name)}</span>
                       <span class="stack-list__value">${escapeHtml(forecastText)}</span>
@@ -2072,6 +2502,7 @@ function renderOutlook(model) {
               .join("")
           : `
             <div class="stack-list__item">
+              <p class="stack-list__kicker">ESPN outlook</p>
               <div class="stack-list__title-row">
                 <span class="stack-list__title">No live paths remain</span>
                 <span class="stack-list__value">Finished</span>
@@ -2084,6 +2515,118 @@ function renderOutlook(model) {
       }
     </div>
   `;
+}
+
+function renderProjectionOutlook(model) {
+  const projection = model.oddsProjection;
+
+  if (!projection?.standings?.length) {
+    const reason = projection?.reason || "Import an EvanMiya tournament-odds CSV to project the group finish.";
+
+    return `
+      <p class="outlook-note">${escapeHtml(reason)}</p>
+      <div class="stack-list">
+        <div class="stack-list__item">
+          <p class="stack-list__kicker">Projection</p>
+          <div class="stack-list__title-row">
+            <span class="stack-list__title">Projection unavailable</span>
+            <span class="stack-list__value">Waiting</span>
+          </div>
+          <p class="stack-list__meta">
+            Import the public EvanMiya tournament-odds CSV to add projected finish scores for each loaded bracket.
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  const projectedEntries = projection.standings
+    .map(entry => ({
+      ...entry,
+      modelEntry: model.entries.find(candidate => candidate.id === entry.entryId)
+    }))
+    .filter(entry => entry.modelEntry);
+  const note = `Projected finish uses imported EvanMiya round-advance odds as expected-value weights for each remaining pick. It is not a full bracket simulation. ${projection.teamsCoveredPct.toFixed(
+    0
+  )}% of bracket teams matched.`;
+
+  return `
+    <p class="outlook-note">${escapeHtml(note)}</p>
+    <div class="stack-list">
+      ${projectedEntries
+        .slice(0, 8)
+        .map(entry => {
+          const projectedBack = entry.projectedBack <= 0.05 ? "Projected leader" : `${entry.projectedBack.toFixed(1)} back`;
+
+          return `
+            <div class="stack-list__item">
+              <p class="stack-list__kicker">Projected finish</p>
+              <div class="stack-list__title-row">
+                <span class="stack-list__title">${escapeHtml(entry.modelEntry.name)}</span>
+                <span class="stack-list__value">${escapeHtml(formatProjectedPoints(entry.projectedPoints))}</span>
+              </div>
+              <p class="stack-list__meta">
+                ${escapeHtml(entry.modelEntry.memberName)} • ${escapeHtml(
+                  formatExpectedRemainingPoints(entry.expectedRemainingPoints)
+                )} • ${escapeHtml(projectedBack)} • ${escapeHtml(entry.matchedPicks)} future picks weighted
+              </p>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderOutlook(model) {
+  dom.outlookPanel.className = "outlook-panel";
+  dom.outlookPanel.innerHTML = getActiveOutlookMode(model) === OUTLOOK_MODE_PROJECTION ? renderProjectionOutlook(model) : renderEspnOutlook(model);
+}
+
+function syncOutlookModeButtons() {
+  const projectionAvailable = Boolean(state.model?.oddsProjection?.standings?.length);
+  const activeMode = getActiveOutlookMode(state.model);
+
+  dom.outlookModeButtons.forEach(button => {
+    const mode = button.dataset.outlookMode;
+    const active = mode === activeMode;
+    const disabled = mode === OUTLOOK_MODE_PROJECTION && !projectionAvailable;
+
+    button.classList.toggle("is-active", active);
+    button.disabled = disabled;
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function syncImportedOddsUi() {
+  if (!dom.oddsStatus || !dom.clearOddsButton || !dom.importOddsButton) {
+    return;
+  }
+
+  const importedOdds = state.importedOdds;
+
+  dom.clearOddsButton.hidden = !importedOdds;
+  dom.clearOddsButton.disabled = !importedOdds;
+  dom.importOddsButton.textContent = importedOdds ? "Replace Odds" : "Import Odds";
+
+  if (!importedOdds) {
+    dom.oddsStatus.textContent = "Import an EvanMiya tournament-odds CSV to add projected finish scores.";
+    return;
+  }
+
+  if (state.model?.oddsProjection?.standings?.length) {
+    dom.oddsStatus.innerHTML = `<strong>${escapeHtml(importedOdds.source)}</strong> loaded for ${escapeHtml(
+      importedOdds.season
+    )} • ${escapeHtml(formatTeamCount(importedOdds.teams.length))} imported`;
+    return;
+  }
+
+  if (state.model?.oddsProjection?.reason) {
+    dom.oddsStatus.textContent = state.model.oddsProjection.reason;
+    return;
+  }
+
+  dom.oddsStatus.innerHTML = `<strong>${escapeHtml(importedOdds.source)}</strong> ready for ${escapeHtml(importedOdds.season)}.`;
 }
 
 function renderPicksTable(model) {
@@ -2177,6 +2720,9 @@ function renderDetails(model) {
   const roundPoints = [...model.pointValueByPeriod.entries()]
     .map(([period, value]) => `R${period}: ${value}`)
     .join(" • ");
+  const importedOddsNote = model.oddsProjection?.standings?.length
+    ? `Imported ${model.oddsProjection.source} odds are weighting each remaining pick by expected points.`
+    : "You can optionally import EvanMiya tournament odds to add projected finish scores.";
 
   dom.detailsPanel.innerHTML = `
     <div class="details-grid">
@@ -2216,6 +2762,7 @@ function renderDetails(model) {
       <li>The timeline rewinds the standings game by game through the tournament.</li>
       <li>${escapeHtml(model.group.limited ? getLargeGroupNote(model) : `All ${model.group.loadedEntries} loaded entries are included in this view.`)}</li>
       <li>When available, the win outlook uses ESPN's current win odds.</li>
+      <li>${escapeHtml(importedOddsNote)}</li>
     </ul>
   `;
 }
@@ -2264,6 +2811,8 @@ function renderEmptyState() {
     dom.picksRoundOptions.innerHTML = '<p class="round-filter__empty">Load a group to choose rounds.</p>';
   }
   dom.downloadCsvButton.disabled = true;
+  syncImportedOddsUi();
+  syncOutlookModeButtons();
 }
 
 function render() {
@@ -2288,6 +2837,8 @@ function render() {
   renderDetails(state.model);
   syncMetricButtons();
   syncChartModeButtons();
+  syncImportedOddsUi();
+  syncOutlookModeButtons();
 }
 
 function syncMetricButtons() {
@@ -2333,6 +2884,7 @@ async function loadGroup(rawInput, rawSeason) {
     };
 
     state.model = buildModel(hydratedChallenge, group, forecast);
+    applyImportedOddsToModel(state.model);
     state.selectedIndex = state.model.completedProps.length;
     updateUrl(lookup.groupId, lookup.season);
     rememberRecentGroup(state.model);
@@ -2656,6 +3208,68 @@ function handleChartModeToggle(event) {
   render();
 }
 
+function handleOutlookModeToggle(event) {
+  const button = event.currentTarget;
+  const nextMode = button.dataset.outlookMode;
+
+  if (!nextMode || button.disabled) {
+    return;
+  }
+
+  state.outlookMode = nextMode;
+  render();
+}
+
+function getImportedOddsSeason() {
+  return Number(state.model?.challenge?.season || dom.seasonInput.value || state.season || getDefaultSeason());
+}
+
+async function handleOddsFileChange(event) {
+  const file = event.target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const csvText = await file.text();
+    state.importedOdds = parseImportedOddsCsv(csvText, getImportedOddsSeason());
+    persistImportedOdds();
+
+    if (state.model) {
+      applyImportedOddsToModel(state.model);
+    }
+
+    state.outlookMode = OUTLOOK_MODE_PROJECTION;
+    setStatus(
+      `Imported ${state.importedOdds.teams.length} EvanMiya team rows for the ${state.importedOdds.season} tournament.`,
+      "success"
+    );
+  } catch (error) {
+    setStatus(error.message, "error");
+  } finally {
+    event.target.value = "";
+    render();
+  }
+}
+
+function handleImportOddsClick() {
+  dom.oddsFileInput?.click();
+}
+
+function handleClearOdds() {
+  state.importedOdds = null;
+  persistImportedOdds();
+
+  if (state.model) {
+    applyImportedOddsToModel(state.model);
+  }
+
+  state.outlookMode = OUTLOOK_MODE_ESPN;
+  setStatus("Cleared imported tournament odds.", "success");
+  render();
+}
+
 function handlePicksRoundChange(event) {
   const checkbox = event.target.closest("[data-round-id]");
 
@@ -2792,6 +3406,10 @@ function init() {
   dom.recentGroupsSelect?.addEventListener("change", handleRecentGroupSelect);
   dom.metricButtons.forEach(button => button.addEventListener("click", handleMetricToggle));
   dom.chartModeButtons.forEach(button => button.addEventListener("click", handleChartModeToggle));
+  dom.outlookModeButtons.forEach(button => button.addEventListener("click", handleOutlookModeToggle));
+  dom.importOddsButton?.addEventListener("click", handleImportOddsClick);
+  dom.clearOddsButton?.addEventListener("click", handleClearOdds);
+  dom.oddsFileInput?.addEventListener("change", handleOddsFileChange);
   dom.picksRoundFilter?.addEventListener("change", handlePicksRoundChange);
   dom.picksRoundFilter?.addEventListener("click", handlePicksRoundFilterClick);
   dom.downloadCsvButton.addEventListener("click", downloadCurrentPicksCsv);
@@ -2815,6 +3433,8 @@ function init() {
   renderRecentGroups();
   syncMetricButtons();
   syncChartModeButtons();
+  syncImportedOddsUi();
+  syncOutlookModeButtons();
 
   if (lookup.group) {
     loadGroup(lookup.group, lookup.season);

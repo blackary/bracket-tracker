@@ -36,7 +36,7 @@
           <div class="hero__highlights" aria-label="Key features">
             <span class="hero__highlight">Game-by-game rewind</span>
             <span class="hero__highlight">Top 10 movement</span>
-            <span class="hero__highlight">Picks CSV export</span>
+            <span class="hero__highlight">Odds projection</span>
           </div>
         </div>
 
@@ -239,9 +239,48 @@
 
           <aside class="side-rail">
             <article class="card">
-              <div class="card__header">
-                <p class="card__eyebrow">Win Outlook</p>
-                <h2 class="card__title">Who still has a path to first</h2>
+              <div class="card__header card__header--outlook">
+                <div>
+                  <p class="card__eyebrow">Win Outlook</p>
+                  <h2 class="card__title">Paths and projections</h2>
+                </div>
+                <div class="outlook-toolbar">
+                  <div
+                    id="outlook-mode-buttons"
+                    class="segmented-control segmented-control--compact"
+                    role="tablist"
+                    aria-label="Outlook mode"
+                  >
+                    <button
+                      class="segmented-control__button is-active"
+                      type="button"
+                      data-outlook-mode="espn"
+                      aria-pressed="true"
+                    >
+                      ESPN Path
+                    </button>
+                    <button
+                      class="segmented-control__button"
+                      type="button"
+                      data-outlook-mode="projection"
+                      aria-pressed="false"
+                    >
+                      Projection
+                    </button>
+                  </div>
+                  <div class="outlook-toolbar__actions">
+                    <input id="odds-file-input" class="visually-hidden" type="file" accept=".csv,text/csv" />
+                    <button id="import-odds-button" class="button button--ghost button--compact" type="button">
+                      Import Odds
+                    </button>
+                    <button id="clear-odds-button" class="button button--ghost button--compact" type="button">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <p id="odds-status" class="outlook-status">
+                  Import an EvanMiya tournament-odds CSV to add projected finish scores.
+                </p>
               </div>
               <div id="outlook-panel" class="outlook-panel outlook-panel--empty">
                 Late-round outlook will appear here after a group loads.
