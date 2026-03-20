@@ -70,6 +70,7 @@ const state = {
   loading: false,
   metric: METRIC_POINTS,
   outlookMode: OUTLOOK_MODE_ESPN,
+  pendingSelectionRender: null,
   picksRoundIds: [],
   season: getDefaultSeason(),
   recentGroups: loadRecentGroups(),
@@ -1495,6 +1496,70 @@ function truncateLabel(value, maxLength = 20) {
   return `${normalized.slice(0, Math.max(maxLength - 1, 1))}…`;
 }
 
+function formatTimelineMatchupLabel(proposition) {
+  const namedTeams = (proposition?.teams || []).filter(team => team?.abbrev || team?.name);
+
+  if (namedTeams.length === 2) {
+    const left = namedTeams[0].abbrev || truncateLabel(namedTeams[0].name, 4);
+    const right = namedTeams[1].abbrev || truncateLabel(namedTeams[1].name, 4);
+    return `${left}@${right}`;
+  }
+
+  return truncateLabel(String(proposition?.name || "Game").replace(/\s+/g, ""), 10);
+}
+
+function shouldShowTimelineMarkerLabel(totalSnapshots, index, selectedIndex) {
+  if (index === selectedIndex || index === 0 || index === totalSnapshots - 1) {
+    return true;
+  }
+
+  const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+
+  if (viewportWidth <= 820) {
+    const interval = totalSnapshots <= 10 ? 2 : totalSnapshots <= 20 ? 4 : 8;
+    return index % interval === 0;
+  }
+
+  if (totalSnapshots <= 18) {
+    return true;
+  }
+
+  const interval = totalSnapshots <= 32 ? 4 : 8;
+  return index % interval === 0;
+}
+
+function getTimelineMarkerMeta(model, index) {
+  const completedCount = model?.completedProps.length || 0;
+
+  if (!completedCount) {
+    return {
+      ariaLabel: "No completed games yet",
+      detailLabel: "No completed games yet",
+      shortLabel: "Start"
+    };
+  }
+
+  if (index === 0) {
+    return {
+      ariaLabel: `Start of bracket replay, before ${model.completedProps[0].name}`,
+      detailLabel: `Before ${model.completedProps[0].name}`,
+      shortLabel: "Start"
+    };
+  }
+
+  const proposition = model.completedProps[index - 1];
+  const afterLabel =
+    index < completedCount
+      ? `After ${proposition.name} / before ${model.completedProps[index].name}`
+      : `Now after ${proposition.name}`;
+
+  return {
+    ariaLabel: afterLabel,
+    detailLabel: afterLabel,
+    shortLabel: formatTimelineMatchupLabel(proposition)
+  };
+}
+
 function getPicksHeaderDetails(proposition) {
   const namedTeams = proposition.teams.filter(team => team?.abbrev || team?.name);
 
@@ -1907,23 +1972,27 @@ function syncTimelineScrubber(model, snapshotIndex) {
 
   dom.timelineMarkers.style.gridTemplateColumns = `repeat(${totalSnapshots}, minmax(0, 1fr))`;
   dom.timelineMarkers.innerHTML = Array.from({ length: totalSnapshots }, (_, index) => {
-    const label =
-      index === 0
-        ? `Before ${model.completedProps[0].name}`
-        : index < completedCount
-          ? `After ${model.completedProps[index - 1].name} / before ${model.completedProps[index].name}`
-        : `Now after ${model.completedProps[completedCount - 1]?.name || "the latest game"}`;
+    const marker = getTimelineMarkerMeta(model, index);
+    const showLabel = shouldShowTimelineMarkerLabel(totalSnapshots, index, snapshotIndex);
 
     return `
       <button
-        class="timeline-marker ${index === snapshotIndex ? "is-active" : ""}"
+        class="timeline-marker ${index === snapshotIndex ? "is-active" : ""} ${showLabel ? "timeline-marker--show-label" : ""}"
         type="button"
         data-snapshot-index="${index}"
-        aria-label="${escapeHtml(label)}"
-        title="${escapeHtml(label)}"
+        aria-label="${escapeHtml(marker.ariaLabel)}"
+        title="${escapeHtml(marker.detailLabel)}"
       ></button>
     `;
   }).join("");
+
+  Array.from(dom.timelineMarkers.querySelectorAll(".timeline-marker")).forEach((button, index) => {
+    const marker = getTimelineMarkerMeta(model, index);
+    button.innerHTML = `
+      <span class="timeline-marker__dot" aria-hidden="true"></span>
+      <span class="timeline-marker__label" aria-hidden="true">${escapeHtml(marker.shortLabel)}</span>
+    `;
+  });
 }
 
 function getSelectedRounds(model) {
@@ -2118,7 +2187,7 @@ function renderSummary(summary) {
 function renderChartSnapshotStrip(summary) {
   const stripItems = [
     {
-      detail: summary.completed.valueText,
+      detail: `${summary.completed.valueText} in the book`,
       label: "Window",
       valueText: summary.snapshotLabel
     },
@@ -2141,6 +2210,16 @@ function renderChartSnapshotStrip(summary) {
       detail: summary.cutline.detail,
       label: "Top 10 Cutline",
       valueText: summary.cutline.valueText
+    },
+    {
+      detail: summary.leadChanges.detail,
+      label: "Lead Changes",
+      valueText: summary.leadChanges.valueText
+    },
+    {
+      detail: summary.biggestMover.detail,
+      label: "Biggest Mover",
+      valueText: truncateLabel(summary.biggestMover.valueText, 20)
     }
   ];
 
@@ -2149,7 +2228,7 @@ function renderChartSnapshotStrip(summary) {
     <div class="snapshot-strip__header">
       <div>
         <p class="snapshot-strip__eyebrow">Live Snapshot</p>
-        <p class="snapshot-strip__copy">Keep the selected state beside the chart while you scrub.</p>
+        <p class="snapshot-strip__copy">Keep the lead swing, cutline, and biggest move beside the chart while you scrub.</p>
       </div>
       <span class="snapshot-strip__mode">${escapeHtml(state.metric === METRIC_ACCURACY ? "Accuracy" : "ESPN points")}</span>
     </div>
@@ -2919,6 +2998,7 @@ function renderDetails(model) {
 }
 
 function renderEmptyState() {
+  cancelPendingSelectionRender();
   finishChartScrub();
   renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
@@ -2967,15 +3047,11 @@ function renderEmptyState() {
   syncOutlookModeButtons();
 }
 
-function render() {
+function renderSelectionState() {
   if (!state.model) {
-    renderEmptyState();
-    syncMetricButtons();
-    syncChartModeButtons();
     return;
   }
 
-  renderHeroGroupSpotlight(state.model);
   const safeIndex = Math.min(state.selectedIndex, state.model.completedProps.length);
   const standings = getSnapshotStandings(state.model, safeIndex, state.metric);
   const summary = buildSnapshotSummary(state.model, standings, safeIndex);
@@ -2985,6 +3061,40 @@ function render() {
   renderTimeline(state.model, standings, safeIndex);
   renderChart(state.model, safeIndex);
   renderStandings(state.model, standings);
+}
+
+function cancelPendingSelectionRender() {
+  if (state.pendingSelectionRender === null) {
+    return;
+  }
+
+  window.cancelAnimationFrame(state.pendingSelectionRender);
+  state.pendingSelectionRender = null;
+}
+
+function scheduleSelectionRender() {
+  if (!state.model || state.pendingSelectionRender !== null) {
+    return;
+  }
+
+  state.pendingSelectionRender = window.requestAnimationFrame(() => {
+    state.pendingSelectionRender = null;
+    renderSelectionState();
+  });
+}
+
+function render() {
+  cancelPendingSelectionRender();
+
+  if (!state.model) {
+    renderEmptyState();
+    syncMetricButtons();
+    syncChartModeButtons();
+    return;
+  }
+
+  renderHeroGroupSpotlight(state.model);
+  renderSelectionState();
   renderOutlook(state.model);
   renderPicksTable(state.model);
   renderDetails(state.model);
@@ -3454,7 +3564,7 @@ function handlePicksRoundFilterClick(event) {
   }
 }
 
-function setSelectedIndex(nextIndex) {
+function setSelectedIndex(nextIndex, options = {}) {
   if (!state.model) {
     return;
   }
@@ -3467,11 +3577,18 @@ function setSelectedIndex(nextIndex) {
   }
 
   state.selectedIndex = safeIndex;
-  render();
+
+  if (options.defer) {
+    scheduleSelectionRender();
+    return;
+  }
+
+  cancelPendingSelectionRender();
+  renderSelectionState();
 }
 
 function handleTimelineInput(event) {
-  setSelectedIndex(event.target.value);
+  setSelectedIndex(event.target.value, { defer: true });
 }
 
 function handleTimelineMarkerClick(event) {
@@ -3528,7 +3645,7 @@ function handleChartPointerDown(event) {
   const nextIndex = getChartSnapshotIndexFromClientX(event.clientX);
 
   if (nextIndex !== null) {
-    setSelectedIndex(nextIndex);
+    setSelectedIndex(nextIndex, { defer: true });
   }
 
   event.preventDefault();
@@ -3542,7 +3659,7 @@ function handleChartPointerMove(event) {
   const nextIndex = getChartSnapshotIndexFromClientX(event.clientX);
 
   if (nextIndex !== null) {
-    setSelectedIndex(nextIndex);
+    setSelectedIndex(nextIndex, { defer: true });
   }
 
   event.preventDefault();

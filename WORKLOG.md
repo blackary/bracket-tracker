@@ -19,6 +19,7 @@
 - Added a compact live snapshot strip inside the chart card so the key state stays visible beside the graph while scrubbing, and checked it on desktop and mobile with live interaction tests.
 - Added a display-only tie spread to the chart so brackets with the same score still render as distinct colored lines instead of collapsing into a single stroke.
 - Reworked the chart labeling so larger layouts show all 10 tracked entries in the chart lane at once, with smaller layouts falling back to a fully visible 10-entry legend instead of a horizontal scroller.
+- Restored lead-change and biggest-mover snapshot stats inside the chart strip, added visible game labels to the chart timeline ticks, and made scrub updates lighter by rerendering only snapshot-dependent sections on animation frames.
 
 ## 2026-03-19
 
