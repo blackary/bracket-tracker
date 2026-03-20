@@ -153,28 +153,33 @@
             <div id="chart-panel" class="chart-panel chart-panel--empty">
               Load a group to render the top-10 chart.
             </div>
+
+            <div id="chart-scrubber" class="chart-scrubber">
+              <div id="timeline-markers" class="timeline-markers">
+                <span class="timeline-marker timeline-marker--empty"></span>
+              </div>
+              <div class="timeline-controls timeline-controls--chart">
+                <button id="timeline-prev" class="button button--ghost" type="button">
+                  Previous
+                </button>
+                <input id="timeline-range" class="timeline-range" type="range" min="0" max="0" value="0" />
+                <button id="timeline-next" class="button button--ghost" type="button">
+                  Next
+                </button>
+              </div>
+              <p id="timeline-caption" class="timeline-caption">
+                No historical snapshots yet.
+              </p>
+            </div>
+
             <div id="leader-legend" class="legend"></div>
           </article>
 
           <article class="card card--timeline">
             <div class="card__header">
-              <p class="card__eyebrow">Time Machine</p>
-              <h2 class="card__title">Standings before each completed game</h2>
+              <p class="card__eyebrow">Game Impact</p>
+              <h2 class="card__title">Details for the selected moment</h2>
             </div>
-
-            <div class="timeline-controls">
-              <button id="timeline-prev" class="button button--ghost" type="button">
-                Previous
-              </button>
-              <input id="timeline-range" class="timeline-range" type="range" min="0" max="0" value="0" />
-              <button id="timeline-next" class="button button--ghost" type="button">
-                Next
-              </button>
-            </div>
-
-            <p id="timeline-caption" class="timeline-caption">
-              No historical snapshots yet.
-            </p>
 
             <div id="timeline-game" class="timeline-game timeline-game--empty">
               Load a group to inspect the schedule and the pregame leaders.

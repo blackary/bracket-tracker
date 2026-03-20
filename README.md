@@ -10,6 +10,7 @@ It loads a public group by id, reconstructs the group standings before every com
 It also shows:
 
 - a top-10 movement graph with chart toggles for rank vs point totals
+- an in-chart game scrubber with a marker for every completed game
 - a timeline scrubber for completed games
 - a bracket picks matrix with a round filter
 - CSV export for the currently visible picks table

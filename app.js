@@ -37,6 +37,7 @@ const state = {
 
 const dom = {
   chartPanel: document.getElementById("chart-panel"),
+  chartScrubber: document.getElementById("chart-scrubber"),
   chartModeButtons: Array.from(document.querySelectorAll("[data-chart-mode]")),
   detailsPanel: document.getElementById("details-panel"),
   downloadCsvButton: document.getElementById("download-csv-button"),
@@ -58,6 +59,7 @@ const dom = {
   summarySnapshot: document.getElementById("summary-snapshot"),
   timelineCaption: document.getElementById("timeline-caption"),
   timelineGame: document.getElementById("timeline-game"),
+  timelineMarkers: document.getElementById("timeline-markers"),
   timelineNext: document.getElementById("timeline-next"),
   timelinePrev: document.getElementById("timeline-prev"),
   timelineRange: document.getElementById("timeline-range")
@@ -695,6 +697,43 @@ function buildChartPath(points) {
   return path.trim();
 }
 
+function syncTimelineScrubber(model, snapshotIndex) {
+  const completedCount = model ? model.completedProps.length : 0;
+  const totalSnapshots = completedCount + 1;
+
+  dom.timelineRange.max = String(completedCount);
+  dom.timelineRange.value = String(snapshotIndex);
+  dom.timelineRange.disabled = completedCount === 0;
+  dom.timelinePrev.disabled = snapshotIndex <= 0;
+  dom.timelineNext.disabled = snapshotIndex >= completedCount;
+  dom.timelineCaption.textContent = model
+    ? `${getSnapshotLabel(model, snapshotIndex)} • ${snapshotIndex} completed games were already in the book`
+    : "No historical snapshots yet.";
+
+  if (!model || totalSnapshots <= 1) {
+    dom.timelineMarkers.innerHTML = '<span class="timeline-marker timeline-marker--empty"></span>';
+    return;
+  }
+
+  dom.timelineMarkers.style.gridTemplateColumns = `repeat(${totalSnapshots}, minmax(0, 1fr))`;
+  dom.timelineMarkers.innerHTML = Array.from({ length: totalSnapshots }, (_, index) => {
+    const label =
+      index < completedCount
+        ? `Before ${model.completedProps[index].name}`
+        : `Now after ${model.completedProps[completedCount - 1]?.name || "the latest game"}`;
+
+    return `
+      <button
+        class="timeline-marker ${index === snapshotIndex ? "is-active" : ""}"
+        type="button"
+        data-snapshot-index="${index}"
+        aria-label="${escapeHtml(label)}"
+        title="${escapeHtml(label)}"
+      ></button>
+    `;
+  }).join("");
+}
+
 function getPicksPropositions(model) {
   if (!model) {
     return [];
@@ -798,13 +837,6 @@ function renderSummary(model, standings, snapshotIndex) {
 
 function renderTimeline(model, standings, snapshotIndex) {
   const completedCount = model.completedProps.length;
-
-  dom.timelineRange.max = String(completedCount);
-  dom.timelineRange.value = String(snapshotIndex);
-  dom.timelineRange.disabled = completedCount === 0;
-  dom.timelinePrev.disabled = snapshotIndex <= 0;
-  dom.timelineNext.disabled = snapshotIndex >= completedCount;
-  dom.timelineCaption.textContent = `${getSnapshotLabel(model, snapshotIndex)} • ${snapshotIndex} completed games were already in the book`;
 
   if (!completedCount) {
     dom.timelineGame.className = "timeline-game timeline-game--empty";
@@ -917,6 +949,19 @@ function renderChart(model, selectedIndex) {
       ? value => padding.top + ((value - 1) / Math.max(MAX_CHART_LINES - 1, 1)) * chartHeight
       : value => padding.top + chartHeight - (value / Math.max(maxPoints, 1)) * chartHeight;
   const selectionX = xFor(selectedIndex);
+  const snapshotTickMarkup = Array.from({ length: totalSnapshots }, (_, index) => {
+    const x = xFor(index);
+
+    return `
+      <line
+        class="chart-snapshot-tick ${index === selectedIndex ? "chart-snapshot-tick--active" : ""}"
+        x1="${x}"
+        x2="${x}"
+        y1="${height - padding.bottom}"
+        y2="${height - padding.bottom + 10}"
+      />
+    `;
+  }).join("");
   const calloutCandidates = leaderEntries
     .map(({ entry, color }) => {
       const selectedSnapshotEntry = selectedPointsStandings.get(entry.id);
@@ -989,6 +1034,10 @@ function renderChart(model, selectedIndex) {
     })
     .join("");
 
+  dom.chartScrubber.style.setProperty("--plot-left", `${(padding.left / width) * 100}%`);
+  dom.chartScrubber.style.setProperty("--plot-right", `${(padding.right / width) * 100}%`);
+  syncTimelineScrubber(model, selectedIndex);
+
   dom.chartPanel.className = "chart-panel";
   dom.chartPanel.innerHTML = `
     <div class="chart-shell">
@@ -1005,6 +1054,7 @@ function renderChart(model, selectedIndex) {
             `;
           })
           .join("")}
+        ${snapshotTickMarkup}
         <line class="chart-selection-line" x1="${selectionX}" x2="${selectionX}" y1="${padding.top}" y2="${height - padding.bottom}" />
         ${leaderEntries
           .map(({ entry, color }) => {
@@ -1351,6 +1401,8 @@ function renderDetails(model) {
 function renderEmptyState() {
   dom.chartPanel.className = "chart-panel chart-panel--empty";
   dom.chartPanel.textContent = "Load a group to render the top-10 chart.";
+  dom.chartScrubber.style.setProperty("--plot-left", "4.3%");
+  dom.chartScrubber.style.setProperty("--plot-right", "21.5%");
   dom.leaderLegend.innerHTML = "";
   dom.outlookPanel.className = "outlook-panel outlook-panel--empty";
   dom.outlookPanel.textContent = "Late-round outlook will appear here after a group loads.";
@@ -1371,11 +1423,7 @@ function renderEmptyState() {
   dom.summaryLeader.textContent = "-";
   dom.summaryDecided.textContent = "0";
   dom.summaryAlive.textContent = "-";
-  dom.timelineRange.value = "0";
-  dom.timelineRange.max = "0";
-  dom.timelineRange.disabled = true;
-  dom.timelinePrev.disabled = true;
-  dom.timelineNext.disabled = true;
+  syncTimelineScrubber(null, 0);
   dom.picksRoundSelect.innerHTML = '<option value="all">All rounds</option>';
   dom.picksRoundSelect.disabled = true;
   dom.downloadCsvButton.disabled = true;
@@ -1557,6 +1605,17 @@ function handleTimelineInput(event) {
   render();
 }
 
+function handleTimelineMarkerClick(event) {
+  const button = event.target.closest("[data-snapshot-index]");
+
+  if (!button) {
+    return;
+  }
+
+  state.selectedIndex = Number(button.dataset.snapshotIndex);
+  render();
+}
+
 function adjustTimeline(delta) {
   if (!state.model) {
     return;
@@ -1582,6 +1641,7 @@ function init() {
   dom.picksRoundSelect.addEventListener("change", handlePicksRoundChange);
   dom.downloadCsvButton.addEventListener("click", downloadCurrentPicksCsv);
   dom.timelineRange.addEventListener("input", handleTimelineInput);
+  dom.timelineMarkers.addEventListener("click", handleTimelineMarkerClick);
   dom.timelinePrev.addEventListener("click", () => adjustTimeline(-1));
   dom.timelineNext.addEventListener("click", () => adjustTimeline(1));
 

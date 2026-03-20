@@ -382,6 +382,14 @@ select {
   height: auto;
 }
 
+.chart-scrubber {
+  --plot-left: 4.3%;
+  --plot-right: 21.5%;
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
 .chart-axis-label {
   fill: var(--ink-faint);
   font-size: 12px;
@@ -395,6 +403,16 @@ select {
 .chart-selection-line {
   stroke: rgba(24, 32, 44, 0.18);
   stroke-dasharray: 6 6;
+}
+
+.chart-snapshot-tick {
+  stroke: rgba(24, 32, 44, 0.16);
+  stroke-width: 1;
+}
+
+.chart-snapshot-tick--active {
+  stroke: rgba(186, 58, 27, 0.65);
+  stroke-width: 2;
 }
 
 .chart-connector {
@@ -481,8 +499,63 @@ select {
   margin-bottom: 0.9rem;
 }
 
+.timeline-controls--chart,
+.timeline-markers,
+.timeline-caption {
+  padding-left: var(--plot-left);
+  padding-right: var(--plot-right);
+}
+
+.timeline-controls--chart {
+  margin-bottom: 0;
+}
+
 .timeline-range {
   width: 100%;
+  accent-color: var(--accent);
+}
+
+.timeline-markers {
+  display: grid;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.timeline-marker {
+  width: 100%;
+  min-width: 0;
+  height: 0.95rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.timeline-marker::before {
+  display: block;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(24, 32, 44, 0.18);
+  box-shadow: 0 0 0 1px rgba(24, 32, 44, 0.06);
+  content: "";
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.timeline-marker:hover::before {
+  transform: scale(1.15);
+  background: rgba(32, 78, 123, 0.55);
+}
+
+.timeline-marker.is-active::before {
+  transform: scale(1.35);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(186, 58, 27, 0.14);
+}
+
+.timeline-marker--empty {
+  pointer-events: none;
 }
 
 .timeline-caption {
