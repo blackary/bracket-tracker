@@ -640,6 +640,10 @@ function formatMetricDisplay(value, metric) {
   return metric === METRIC_ACCURACY ? `${value.toFixed(1)}%` : `${value} pts`;
 }
 
+function formatTieLabel(count) {
+  return count > 1 ? `${count}-way tie` : "Leader";
+}
+
 function formatRankDisplay(rank) {
   return rank ? `#${rank}` : "-";
 }
@@ -695,6 +699,28 @@ function buildChartPath(points) {
   });
 
   return path.trim();
+}
+
+function renderLeaderBadgeList(entries, maxVisible = 5) {
+  const visible = entries.slice(0, maxVisible);
+  const overflow = entries.length - visible.length;
+
+  return `
+    <div class="timeline-game__leader-list">
+      ${visible
+        .map(
+          entry => `
+            <span class="timeline-game__leader-chip">${escapeHtml(entry.name)}</span>
+          `
+        )
+        .join("")}
+      ${
+        overflow > 0
+          ? `<span class="timeline-game__leader-chip timeline-game__leader-chip--muted">+${escapeHtml(overflow)} more</span>`
+          : ""
+      }
+    </div>
+  `;
 }
 
 function syncTimelineScrubber(model, snapshotIndex) {
@@ -827,17 +853,16 @@ function syncPicksControls(model) {
 
 function renderSummary(model, standings, snapshotIndex) {
   const leaders = getLeaderSummary(standings, state.metric);
-  const leaderNames = leaders.entries.slice(0, 2).map(entry => entry.name);
-  const extraLeaders = Math.max(leaders.entries.length - leaderNames.length, 0);
   const currentAliveCount = model.entries.filter(entry => entry.stillAlive).length;
-  const leaderText = leaderNames.length
-    ? `${leaderNames.join(", ")}${extraLeaders ? ` +${extraLeaders}` : ""}`
+  const leadName = leaders.entries[0]?.name ? truncateLabel(leaders.entries[0].name, 26) : "-";
+  const leaderDetail = leaders.entries.length
+    ? `${formatTieLabel(leaders.entries.length)} • ${leaders.valueText}`
     : "-";
 
   dom.summarySnapshot.textContent = getSnapshotLabel(model, snapshotIndex);
   dom.summaryLeader.innerHTML = `
-    ${escapeHtml(leaderText)}
-    <div class="metric-card__detail">${escapeHtml(leaders.valueText)}</div>
+    ${escapeHtml(leadName)}
+    <div class="metric-card__detail">${escapeHtml(leaderDetail)}</div>
   `;
   dom.summaryDecided.textContent = `${snapshotIndex} of ${model.completedProps.length}`;
   dom.summaryAlive.textContent = `${currentAliveCount} / ${model.group.size}`;
@@ -855,6 +880,10 @@ function renderTimeline(model, standings, snapshotIndex) {
   if (snapshotIndex >= completedCount) {
     const leaders = getLeaderSummary(standings, state.metric);
     const lastGame = model.completedProps[completedCount - 1];
+    const leaderSummary =
+      leaders.entries.length > 1
+        ? `${formatTieLabel(leaders.entries.length)} for first at ${leaders.valueText}.`
+        : `${leaders.entries[0]?.name || "Unknown entry"} leads at ${leaders.valueText}.`;
 
     dom.timelineGame.className = "timeline-game";
     dom.timelineGame.innerHTML = `
@@ -867,9 +896,11 @@ function renderTimeline(model, standings, snapshotIndex) {
         <span class="pill">${escapeHtml(formatDateTime(lastGame.date))}</span>
         <span class="pill pill--accent">${escapeHtml(leaders.valueText)}</span>
       </div>
-      <p class="timeline-game__copy">
-        ${escapeHtml(leaders.entries.map(entry => entry.name).join(", "))} lead${leaders.entries.length > 1 ? "" : "s"} the group right now.
-      </p>
+      <div class="timeline-game__leaders">
+        <p class="timeline-game__leaders-label">Top line right now</p>
+        ${renderLeaderBadgeList(leaders.entries)}
+      </div>
+      <p class="timeline-game__copy">${escapeHtml(leaderSummary)}</p>
       ${
         lastGame.gameUrl
           ? `<a class="timeline-game__link" href="${escapeHtml(lastGame.gameUrl)}" target="_blank" rel="noreferrer">Open the last completed matchup on ESPN</a>`
@@ -881,6 +912,10 @@ function renderTimeline(model, standings, snapshotIndex) {
 
   const proposition = model.completedProps[snapshotIndex];
   const leaders = getLeaderSummary(standings, state.metric);
+  const leaderSummary =
+    leaders.entries.length > 1
+      ? `${formatTieLabel(leaders.entries.length)} for first at ${leaders.valueText} before tip.`
+      : `${leaders.entries[0]?.name || "Unknown entry"} led at ${leaders.valueText} before tip.`;
 
   dom.timelineGame.className = "timeline-game";
   dom.timelineGame.innerHTML = `
@@ -905,11 +940,11 @@ function renderTimeline(model, standings, snapshotIndex) {
         )
         .join("")}
     </div>
-    <p class="timeline-game__copy">
-      Before tip, ${escapeHtml(leaders.entries.map(entry => entry.name).join(", "))} led the group by ${escapeHtml(
-        leaders.valueText
-      )}.
-    </p>
+    <div class="timeline-game__leaders">
+      <p class="timeline-game__leaders-label">Top line before tip</p>
+      ${renderLeaderBadgeList(leaders.entries)}
+    </div>
+    <p class="timeline-game__copy">${escapeHtml(leaderSummary)}</p>
     ${
       proposition.gameUrl
         ? `<a class="timeline-game__link" href="${escapeHtml(proposition.gameUrl)}" target="_blank" rel="noreferrer">Open matchup on ESPN</a>`
@@ -943,9 +978,18 @@ function renderChart(model, selectedIndex) {
       entry
     }));
 
-  const width = 980;
-  const height = 360;
-  const padding = { top: 20, right: 210, bottom: 32, left: 42 };
+  const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+  const compact = viewportWidth <= 820;
+  const medium = viewportWidth <= 1200;
+  const width = compact ? 760 : 980;
+  const height = compact ? 310 : 360;
+  const calloutLimit = compact ? 0 : medium ? 3 : MAX_CHART_CALLOUTS;
+  const padding = {
+    top: 20,
+    right: compact ? 24 : medium ? 176 : 210,
+    bottom: compact ? 36 : 32,
+    left: compact ? 34 : 42
+  };
   const plotRight = width - padding.right;
   const chartWidth = plotRight - padding.left;
   const chartHeight = height - padding.top - padding.bottom;
@@ -1007,7 +1051,7 @@ function renderChart(model, selectedIndex) {
     })
     .filter(Boolean)
     .sort((left, right) => left.sortValue - right.sortValue)
-    .slice(0, MAX_CHART_CALLOUTS);
+    .slice(0, calloutLimit);
   const callouts = layoutChartCallouts(
     calloutCandidates,
     padding.top + 18,
@@ -1047,7 +1091,7 @@ function renderChart(model, selectedIndex) {
   dom.chartScrubber.style.setProperty("--plot-right", `${(padding.right / width) * 100}%`);
   syncTimelineScrubber(model, selectedIndex);
 
-  dom.chartPanel.className = "chart-panel";
+  dom.chartPanel.className = `chart-panel${compact ? " chart-panel--compact" : ""}`;
   dom.chartPanel.innerHTML = `
     <div class="chart-shell">
       <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Leader history chart">
