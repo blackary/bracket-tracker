@@ -55,6 +55,7 @@ const dom = {
   exportSheetPreview: document.getElementById("export-sheet-preview"),
   exportSheetTitle: document.getElementById("export-sheet-title"),
   chartPanel: document.getElementById("chart-panel"),
+  chartSnapshotStrip: document.getElementById("chart-snapshot-strip"),
   chartScrubber: document.getElementById("chart-scrubber"),
   chartModeButtons: Array.from(document.querySelectorAll("[data-chart-mode]")),
   detailsPanel: document.getElementById("details-panel"),
@@ -1219,7 +1220,7 @@ function syncPicksControls(model) {
   dom.downloadCsvButton.disabled = false;
 }
 
-function renderSummary(model, standings, snapshotIndex) {
+function buildSnapshotSummary(model, standings, snapshotIndex) {
   const leaders = getLeaderSummary(standings, state.metric);
   const currentAliveCount = model.entries.filter(entry => entry.stillAlive).length;
   const leadName = leaders.entries[0]?.name ? truncateLabel(leaders.entries[0].name, 26) : "-";
@@ -1230,32 +1231,113 @@ function renderSummary(model, standings, snapshotIndex) {
   const cutline = getTopTenCutlineSummary(model, snapshotIndex);
   const leadChanges = getLeadChangeCount(model, snapshotIndex, state.metric);
   const biggestMover = getBiggestMoverSummary(model, snapshotIndex, state.metric);
+  const snapshotLabel = getSnapshotLabel(model, snapshotIndex);
+  const loadedEntryCount = model.group.limited ? model.group.loadedEntries : model.group.size;
 
-  dom.summarySnapshot.textContent = getSnapshotLabel(model, snapshotIndex);
+  return {
+    alive: {
+      detail: model.group.limited ? "still alive in loaded entries" : "still have a path",
+      valueText: `${currentAliveCount} / ${loadedEntryCount}`
+    },
+    biggestMover,
+    completed: {
+      detail: "completed games",
+      valueText: `${snapshotIndex} of ${model.completedProps.length}`
+    },
+    cutline,
+    leadChanges: {
+      detail: `through ${snapshotLabel.toLowerCase()}`,
+      valueText: String(leadChanges)
+    },
+    leader: {
+      detail: leaderDetail,
+      valueText: leadName
+    },
+    margin,
+    snapshotLabel
+  };
+}
+
+function renderSummary(summary) {
+  dom.summarySnapshot.textContent = summary.snapshotLabel;
   dom.summaryLeader.innerHTML = `
-    ${escapeHtml(leadName)}
-    <div class="metric-card__detail">${escapeHtml(leaderDetail)}</div>
+    ${escapeHtml(summary.leader.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.leader.detail)}</div>
   `;
-  dom.summaryDecided.textContent = `${snapshotIndex} of ${model.completedProps.length}`;
+  dom.summaryDecided.textContent = summary.completed.valueText;
   dom.summaryMargin.innerHTML = `
-    ${escapeHtml(margin.valueText)}
-    <div class="metric-card__detail">${escapeHtml(margin.detail)}</div>
+    ${escapeHtml(summary.margin.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.margin.detail)}</div>
   `;
   dom.summaryCutline.innerHTML = `
-    ${escapeHtml(cutline.valueText)}
-    <div class="metric-card__detail">${escapeHtml(cutline.detail)}</div>
+    ${escapeHtml(summary.cutline.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.cutline.detail)}</div>
   `;
   dom.summaryChanges.innerHTML = `
-    ${escapeHtml(leadChanges)}
-    <div class="metric-card__detail">${escapeHtml(`through ${getSnapshotLabel(model, snapshotIndex).toLowerCase()}`)}</div>
+    ${escapeHtml(summary.leadChanges.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.leadChanges.detail)}</div>
   `;
   dom.summaryMover.innerHTML = `
-    ${escapeHtml(biggestMover.valueText)}
-    <div class="metric-card__detail">${escapeHtml(biggestMover.detail)}</div>
+    ${escapeHtml(summary.biggestMover.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.biggestMover.detail)}</div>
   `;
   dom.summaryAlive.innerHTML = `
-    ${escapeHtml(`${currentAliveCount} / ${model.group.limited ? model.group.loadedEntries : model.group.size}`)}
-    <div class="metric-card__detail">${escapeHtml(model.group.limited ? "still alive in loaded entries" : "still have a path")}</div>
+    ${escapeHtml(summary.alive.valueText)}
+    <div class="metric-card__detail">${escapeHtml(summary.alive.detail)}</div>
+  `;
+}
+
+function renderChartSnapshotStrip(summary) {
+  const stripItems = [
+    {
+      detail: summary.completed.valueText,
+      label: "Window",
+      valueText: summary.snapshotLabel
+    },
+    {
+      detail: summary.leader.detail,
+      label: "Leader",
+      valueText: truncateLabel(summary.leader.valueText, 20)
+    },
+    {
+      detail: summary.completed.detail,
+      label: "Games",
+      valueText: summary.completed.valueText
+    },
+    {
+      detail: summary.margin.detail,
+      label: "Lead Margin",
+      valueText: summary.margin.valueText
+    },
+    {
+      detail: summary.cutline.detail,
+      label: "Top 10 Cutline",
+      valueText: summary.cutline.valueText
+    }
+  ];
+
+  dom.chartSnapshotStrip.className = "snapshot-strip";
+  dom.chartSnapshotStrip.innerHTML = `
+    <div class="snapshot-strip__header">
+      <div>
+        <p class="snapshot-strip__eyebrow">Live Snapshot</p>
+        <p class="snapshot-strip__copy">Keep the selected state in view while you scrub the chart.</p>
+      </div>
+      <span class="snapshot-strip__mode">${escapeHtml(state.metric === METRIC_ACCURACY ? "Accuracy view" : "ESPN points view")}</span>
+    </div>
+    <div class="snapshot-strip__items">
+      ${stripItems
+        .map(
+          item => `
+            <article class="snapshot-strip__item">
+              <p class="snapshot-strip__label">${escapeHtml(item.label)}</p>
+              <div class="snapshot-strip__value">${escapeHtml(item.valueText)}</div>
+              <div class="snapshot-strip__detail">${escapeHtml(item.detail)}</div>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
   `;
 }
 
@@ -1872,6 +1954,8 @@ function renderDetails(model) {
 
 function renderEmptyState() {
   finishChartScrub();
+  dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
+  dom.chartSnapshotStrip.textContent = "Load a group to keep the current snapshot next to the chart.";
   dom.chartPanel.className = "chart-panel chart-panel--empty";
   dom.chartPanel.textContent = "Load a group to render the top-10 chart.";
   dom.chartScrubber.style.setProperty("--plot-left", "4.3%");
@@ -1916,8 +2000,10 @@ function render() {
 
   const safeIndex = Math.min(state.selectedIndex, state.model.completedProps.length);
   const standings = getSnapshotStandings(state.model, safeIndex, state.metric);
+  const summary = buildSnapshotSummary(state.model, standings, safeIndex);
 
-  renderSummary(state.model, standings, safeIndex);
+  renderSummary(summary);
+  renderChartSnapshotStrip(summary);
   renderTimeline(state.model, standings, safeIndex);
   renderChart(state.model, safeIndex);
   renderStandings(state.model, standings);

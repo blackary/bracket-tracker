@@ -5,6 +5,7 @@
 - Tightened the app's visual direction with a darker hero treatment, stronger card surfaces, cleaner legend chips, and warmer chart and table panels so the page reads less like a generic dashboard.
 - Added a short feature-pill row in the hero to give the landing area more structure without changing the app flow.
 - Validated the styling pass against the live SportsCenter example in headless Chrome with fresh desktop and mobile screenshots plus a ready-state DOM check.
+- Added a compact live snapshot strip inside the chart card so the key state stays visible beside the graph while scrubbing, and checked it on desktop and mobile with live interaction tests.
 
 ## 2026-03-19
 
