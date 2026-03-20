@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Removed the duplicated top summary-card row so the chart-side live snapshot strip is the single place for scrub-aware snapshot stats.
 - Reworked recent groups back into a bounded dropdown, kept the prominent group spotlight, and verified the dropdown can reopen previously viewed groups on mobile and desktop.
 - Stabilized the chart cohort to the current top 10 for the selected metric so lines no longer pop in and out while scrubbing, and expanded the rank view so those lines stay visible even when they fell outside the top 10 earlier.
 - Added a `Play from Start` replay control for a racing-lines playback from the opening board to the current snapshot.

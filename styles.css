@@ -160,7 +160,6 @@ select {
 
 .eyebrow,
 .card__eyebrow,
-.metric-card__label,
 .field__label {
   margin: 0 0 0.55rem;
   color: var(--ink-faint);
@@ -265,8 +264,7 @@ select {
 }
 
 .lookup-card,
-.card,
-.metric-card {
+.card {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.56);
   border-radius: var(--radius-xl);
@@ -276,8 +274,7 @@ select {
 }
 
 .lookup-card::before,
-.card::before,
-.metric-card::before {
+.card::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -673,35 +670,6 @@ select {
 .dashboard {
   display: grid;
   gap: 1.25rem;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
-.metric-card {
-  min-height: 7.5rem;
-  padding: 0.95rem 1.05rem 1rem;
-  box-shadow:
-    0 20px 42px rgba(37, 30, 19, 0.11),
-    inset 0 1px 0 rgba(255, 255, 255, 0.44);
-}
-
-.metric-card__value {
-  font-family: "Newsreader", ui-serif, serif;
-  font-size: clamp(1.35rem, 2.5vw, 2.2rem);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.metric-card__detail {
-  margin-top: 0.45rem;
-  color: var(--ink-faint);
-  font-family: "Bricolage Grotesque", ui-sans-serif, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .content-grid {
@@ -1698,41 +1666,12 @@ select {
     gap: 0.9rem;
   }
 
-  .summary-grid {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(15rem, 82vw);
-    grid-template-columns: none;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 0.15rem;
-    scrollbar-width: none;
-    margin-inline: -0.15rem;
-    padding: 0.1rem 0.15rem 0.35rem;
-  }
-
-  .summary-grid::-webkit-scrollbar,
   .legend::-webkit-scrollbar {
     display: none;
   }
 
   .side-rail {
     grid-template-columns: 1fr;
-  }
-
-  .metric-card {
-    scroll-snap-align: start;
-    min-height: 0;
-    padding: 0.9rem 0.95rem 0.95rem;
-  }
-
-  .metric-card__value {
-    font-size: clamp(1.55rem, 8vw, 1.95rem);
-  }
-
-  .metric-card__detail {
-    font-size: 0.84rem;
   }
 
   .card__header--split,
@@ -1978,10 +1917,6 @@ select {
 
   .outlook-toolbar__actions {
     grid-template-columns: 1fr;
-  }
-
-  .summary-grid {
-    grid-auto-columns: minmax(15rem, 88vw);
   }
 
   .legend__item {

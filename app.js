@@ -118,13 +118,6 @@ const dom = {
   seasonInput: document.getElementById("season-input"),
   standingsPanel: document.getElementById("standings-panel"),
   statusBanner: document.getElementById("status-banner"),
-  summaryChanges: document.getElementById("summary-changes"),
-  summaryCutline: document.getElementById("summary-cutline"),
-  summaryDecided: document.getElementById("summary-decided"),
-  summaryLeader: document.getElementById("summary-leader"),
-  summaryMargin: document.getElementById("summary-margin"),
-  summaryMover: document.getElementById("summary-mover"),
-  summarySnapshot: document.getElementById("summary-snapshot"),
   timelineCaption: document.getElementById("timeline-caption"),
   timelineGame: document.getElementById("timeline-game"),
   timelineMarkers: document.getElementById("timeline-markers"),
@@ -2100,31 +2093,6 @@ function buildSnapshotSummary(model, standings, snapshotIndex) {
   };
 }
 
-function renderSummary(summary) {
-  dom.summarySnapshot.textContent = summary.snapshotLabel;
-  dom.summaryLeader.innerHTML = `
-    ${escapeHtml(summary.leader.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.leader.detail)}</div>
-  `;
-  dom.summaryDecided.textContent = summary.completed.valueText;
-  dom.summaryMargin.innerHTML = `
-    ${escapeHtml(summary.margin.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.margin.detail)}</div>
-  `;
-  dom.summaryCutline.innerHTML = `
-    ${escapeHtml(summary.cutline.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.cutline.detail)}</div>
-  `;
-  dom.summaryChanges.innerHTML = `
-    ${escapeHtml(summary.leadChanges.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.leadChanges.detail)}</div>
-  `;
-  dom.summaryMover.innerHTML = `
-    ${escapeHtml(summary.biggestMover.valueText)}
-    <div class="metric-card__detail">${escapeHtml(summary.biggestMover.detail)}</div>
-  `;
-}
-
 function renderChartSnapshotStrip(summary) {
   const stripItems = [
     {
@@ -3032,13 +3000,6 @@ function renderEmptyState() {
       Load a group to see scoring, entry counts, and how the replay works.
     </p>
   `;
-  dom.summarySnapshot.textContent = "No group loaded";
-  dom.summaryLeader.textContent = "-";
-  dom.summaryDecided.textContent = "0";
-  dom.summaryMargin.textContent = "-";
-  dom.summaryCutline.textContent = "-";
-  dom.summaryChanges.textContent = "-";
-  dom.summaryMover.textContent = "-";
   syncTimelineScrubber(null, 0);
   state.picksRoundIds = [];
   if (dom.picksRoundFilter) {
@@ -3066,7 +3027,6 @@ function renderSelectionState() {
   const standings = getSnapshotStandings(state.model, safeIndex, state.metric);
   const summary = buildSnapshotSummary(state.model, standings, safeIndex);
 
-  renderSummary(summary);
   renderChartSnapshotStrip(summary);
   renderTimeline(state.model, standings, safeIndex);
   renderChart(state.model, safeIndex);
