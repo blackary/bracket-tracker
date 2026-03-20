@@ -54,8 +54,12 @@ const dom = {
   standingsPanel: document.getElementById("standings-panel"),
   statusBanner: document.getElementById("status-banner"),
   summaryAlive: document.getElementById("summary-alive"),
+  summaryChanges: document.getElementById("summary-changes"),
+  summaryCutline: document.getElementById("summary-cutline"),
   summaryDecided: document.getElementById("summary-decided"),
   summaryLeader: document.getElementById("summary-leader"),
+  summaryMargin: document.getElementById("summary-margin"),
+  summaryMover: document.getElementById("summary-mover"),
   summarySnapshot: document.getElementById("summary-snapshot"),
   timelineCaption: document.getElementById("timeline-caption"),
   timelineGame: document.getElementById("timeline-game"),
@@ -644,6 +648,10 @@ function formatTieLabel(count) {
   return count > 1 ? `${count}-way tie` : "Leader";
 }
 
+function formatMarginDisplay(value, metric) {
+  return metric === METRIC_ACCURACY ? `${value.toFixed(1)} pp` : `${value} pts`;
+}
+
 function formatRankDisplay(rank) {
   return rank ? `#${rank}` : "-";
 }
@@ -654,6 +662,129 @@ function formatChartValueDisplay(snapshotEntry, chartMode) {
   }
 
   return chartMode === CHART_MODE_RANK ? formatRankDisplay(snapshotEntry.rank) : `${snapshotEntry.snapshot.points} pts`;
+}
+
+function getLeadMarginSummary(standings, metric) {
+  if (standings.length < 2) {
+    return {
+      detail: "Only one entry",
+      valueText: "-"
+    };
+  }
+
+  const leaders = getLeaderSummary(standings, metric).entries;
+
+  if (leaders.length > 1) {
+    return {
+      detail: `${formatTieLabel(leaders.length)} at the top`,
+      valueText: formatMarginDisplay(0, metric)
+    };
+  }
+
+  const leadValue = metricValue(standings[0], metric);
+  const runnerUp = standings.find(entry => !valuesMatch(metricValue(entry, metric), leadValue, metric));
+
+  if (!runnerUp) {
+    return {
+      detail: "No runner-up yet",
+      valueText: formatMarginDisplay(0, metric)
+    };
+  }
+
+  return {
+    detail: `over ${truncateLabel(runnerUp.name, 22)}`,
+    valueText: formatMarginDisplay(leadValue - metricValue(runnerUp, metric), metric)
+  };
+}
+
+function getTopTenCutlineSummary(model, snapshotIndex) {
+  const pointsStandings = getSnapshotStandings(model, snapshotIndex, METRIC_POINTS);
+
+  if (!pointsStandings.length) {
+    return {
+      detail: "No entries loaded",
+      valueText: "-"
+    };
+  }
+
+  const cutIndex = Math.min(MAX_CHART_LINES - 1, pointsStandings.length - 1);
+  const cutlineEntry = pointsStandings[cutIndex];
+  const nextEntry = pointsStandings[cutIndex + 1];
+  let detail = pointsStandings.length < MAX_CHART_LINES ? `${pointsStandings.length} entries total` : "last chart spot";
+
+  if (nextEntry) {
+    const gap = cutlineEntry.snapshot.points - nextEntry.snapshot.points;
+    detail = gap > 0 ? `${gap} pts over #11` : "tie at the cutline";
+  }
+
+  return {
+    detail,
+    valueText: `${cutlineEntry.snapshot.points} pts`
+  };
+}
+
+function getLeadChangeCount(model, snapshotIndex, metric) {
+  let previousLeaderKey = "";
+  let changes = 0;
+
+  for (let index = 0; index <= snapshotIndex; index += 1) {
+    const standings = getSnapshotStandings(model, index, metric);
+    const leaderKey = getLeaderSummary(standings, metric).entries
+      .map(entry => entry.id)
+      .sort()
+      .join("|");
+
+    if (previousLeaderKey && leaderKey !== previousLeaderKey) {
+      changes += 1;
+    }
+
+    previousLeaderKey = leaderKey;
+  }
+
+  return changes;
+}
+
+function getBiggestMoverSummary(model, snapshotIndex, metric) {
+  if (snapshotIndex === 0) {
+    return {
+      detail: "No prior game yet",
+      valueText: "Opening tip"
+    };
+  }
+
+  const previousStandings = getSnapshotStandings(model, snapshotIndex - 1, metric);
+  const currentStandings = getSnapshotStandings(model, snapshotIndex, metric);
+  const previousRanks = new Map(previousStandings.map(entry => [entry.id, entry.rank]));
+  let biggestMove = null;
+
+  currentStandings.forEach(entry => {
+    const previousRank = previousRanks.get(entry.id) || entry.rank;
+    const delta = previousRank - entry.rank;
+    const score = Math.abs(delta);
+
+    if (!biggestMove || score > biggestMove.score || (score === biggestMove.score && delta > biggestMove.delta)) {
+      biggestMove = {
+        delta,
+        entry,
+        score
+      };
+    }
+  });
+
+  if (!biggestMove || biggestMove.score === 0) {
+    return {
+      detail: "No rank movement",
+      valueText: "Flat board"
+    };
+  }
+
+  const direction = biggestMove.delta > 0 ? "up" : "down";
+  const steps = Math.abs(biggestMove.delta);
+
+  return {
+    detail: `${direction} ${steps} spot${steps === 1 ? "" : "s"}`,
+    valueText: truncateLabel(biggestMove.entry.name, 24)
+  };
 }
 
 function layoutChartCallouts(callouts, minY, maxY, gap) {
@@ -858,6 +989,10 @@ function renderSummary(model, standings, snapshotIndex) {
   const leaderDetail = leaders.entries.length
     ? `${formatTieLabel(leaders.entries.length)} • ${leaders.valueText}`
     : "-";
+  const margin = getLeadMarginSummary(standings, state.metric);
+  const cutline = getTopTenCutlineSummary(model, snapshotIndex);
+  const leadChanges = getLeadChangeCount(model, snapshotIndex, state.metric);
+  const biggestMover = getBiggestMoverSummary(model, snapshotIndex, state.metric);
 
   dom.summarySnapshot.textContent = getSnapshotLabel(model, snapshotIndex);
   dom.summaryLeader.innerHTML = `
@@ -865,6 +1000,22 @@ function renderSummary(model, standings, snapshotIndex) {
     <div class="metric-card__detail">${escapeHtml(leaderDetail)}</div>
   `;
   dom.summaryDecided.textContent = `${snapshotIndex} of ${model.completedProps.length}`;
+  dom.summaryMargin.innerHTML = `
+    ${escapeHtml(margin.valueText)}
+    <div class="metric-card__detail">${escapeHtml(margin.detail)}</div>
+  `;
+  dom.summaryCutline.innerHTML = `
+    ${escapeHtml(cutline.valueText)}
+    <div class="metric-card__detail">${escapeHtml(cutline.detail)}</div>
+  `;
+  dom.summaryChanges.innerHTML = `
+    ${escapeHtml(leadChanges)}
+    <div class="metric-card__detail">${escapeHtml(`through ${getSnapshotLabel(model, snapshotIndex).toLowerCase()}`)}</div>
+  `;
+  dom.summaryMover.innerHTML = `
+    ${escapeHtml(biggestMover.valueText)}
+    <div class="metric-card__detail">${escapeHtml(biggestMover.detail)}</div>
+  `;
   dom.summaryAlive.textContent = `${currentAliveCount} / ${model.group.size}`;
 }
 
@@ -1476,6 +1627,10 @@ function renderEmptyState() {
   dom.summarySnapshot.textContent = "No group loaded";
   dom.summaryLeader.textContent = "-";
   dom.summaryDecided.textContent = "0";
+  dom.summaryMargin.textContent = "-";
+  dom.summaryCutline.textContent = "-";
+  dom.summaryChanges.textContent = "-";
+  dom.summaryMover.textContent = "-";
   dom.summaryAlive.textContent = "-";
   syncTimelineScrubber(null, 0);
   dom.picksRoundSelect.innerHTML = '<option value="all">All rounds</option>';

@@ -11,6 +11,7 @@ It also shows:
 
 - a top-10 movement graph for the selected moment, with chart toggles for rank vs point totals
 - an in-chart game scrubber with a marker for every completed game
+- expanded snapshot stats including lead margin, cutline, lead changes, and biggest mover
 - a timeline scrubber for completed games
 - a bracket picks matrix with a round filter
 - CSV export for the currently visible picks table

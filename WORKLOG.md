@@ -12,3 +12,4 @@
 - Moved the scrubber into the chart card and added per-game markers so the graph itself can be scrubbed game by game.
 - Changed the chart cohort to the selected moment's top 10 so scrubbing updates who is shown at each point in the tournament.
 - Restructured the layout, made the chart responsive, cleaned up tie-heavy copy, and validated the result with desktop and mobile screenshots plus a headless DOM check.
+- Added more snapshot stats, including lead margin, top-10 cutline, lead changes, and biggest mover, and tuned the summary grid to wrap earlier.
