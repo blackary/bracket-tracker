@@ -2,6 +2,7 @@
 
 ## 2026-03-20
 
+- Tightened the site copy so the hero, status banner, empty states, picks area, and export language all read in the same editorial voice as the rest of the app.
 - Reworked recent groups into visible quick-load buttons, added a session-storage fallback when persistent storage is restricted, and added a prominent hero spotlight for the currently loaded group name.
 - Added an optional EvanMiya projection mode with CSV import, expected-score ranking for loaded brackets, local persistence for imported odds, and desktop/mobile QA against a live SportsCenter group.
 - Kept the app static by using manual odds import instead of a brittle live scrape, since EvanMiya's public tournament-odds page does not expose browser-readable CORS responses for GitHub Pages.

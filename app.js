@@ -294,7 +294,7 @@ function parseGroupLookup(rawInput, rawSeason) {
   const season = Number(rawSeason) || getDefaultSeason();
 
   if (!trimmed) {
-    throw new Error("Enter a group ID or an ESPN group URL.");
+    throw new Error("Paste a group ID or full ESPN group URL.");
   }
 
   const directUuid = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
@@ -309,7 +309,7 @@ function parseGroupLookup(rawInput, rawSeason) {
     const seasonMatch = url.pathname.match(/tournament-challenge-bracket-(\d{4})/i);
 
     if (!groupId) {
-      throw new Error("The URL does not include a group id.");
+      throw new Error("That URL does not include a group ID.");
     }
 
     return {
@@ -322,7 +322,7 @@ function parseGroupLookup(rawInput, rawSeason) {
     }
   }
 
-  throw new Error("Could not parse that value. Use a group ID or a full ESPN group URL.");
+  throw new Error("Couldn't read that value. Use a group ID or full ESPN group URL.");
 }
 
 function updateUrl(groupId, season) {
@@ -391,7 +391,7 @@ function renderHeroGroupSpotlight(model) {
   if (!model) {
     dom.heroGroupSpotlight.className = "hero-group hero-group--empty";
     dom.heroGroupName.textContent = "No group loaded";
-    dom.heroGroupMeta.textContent = "Load a public ESPN Tournament Challenge group to start tracking its history.";
+    dom.heroGroupMeta.textContent = "Choose a public ESPN group to bring its tournament race into view.";
     return;
   }
 
@@ -615,7 +615,7 @@ function parseImportedOddsCsv(text, season) {
   const rows = parseCsvRows(text);
 
   if (rows.length < 2) {
-    throw new Error("That CSV did not include any EvanMiya odds rows.");
+    throw new Error("That CSV doesn't include any EvanMiya odds rows.");
   }
 
   const headerIndexByKey = new Map(rows[0].map((header, index) => [normalizeHeaderKey(header), index]));
@@ -631,7 +631,7 @@ function parseImportedOddsCsv(text, season) {
   };
 
   if (Object.values(requiredColumns).some(value => value === undefined)) {
-    throw new Error("That file does not look like EvanMiya's tournament-odds export.");
+    throw new Error("That file doesn't look like an EvanMiya tournament-odds export.");
   }
 
   const teams = rows
@@ -668,7 +668,7 @@ function parseImportedOddsCsv(text, season) {
   });
 
   if (!hydrated || hydrated.teams.length < 16) {
-    throw new Error("The imported odds file did not contain enough team rows to use.");
+    throw new Error("That imported odds file doesn't include enough team rows to use.");
   }
 
   return hydrated;
@@ -2076,9 +2076,9 @@ function renderChartSnapshotStrip(summary) {
     <div class="snapshot-strip__header">
       <div>
         <p class="snapshot-strip__eyebrow">Live Snapshot</p>
-        <p class="snapshot-strip__copy">Keep the selected state in view while you scrub the chart.</p>
+        <p class="snapshot-strip__copy">Keep the selected state beside the chart while you scrub.</p>
       </div>
-      <span class="snapshot-strip__mode">${escapeHtml(state.metric === METRIC_ACCURACY ? "Accuracy view" : "ESPN points view")}</span>
+      <span class="snapshot-strip__mode">${escapeHtml(state.metric === METRIC_ACCURACY ? "Accuracy" : "ESPN points")}</span>
     </div>
     <div class="snapshot-strip__items">
       ${stripItems
@@ -2101,7 +2101,7 @@ function renderTimeline(model, standings, snapshotIndex) {
 
   if (!completedCount) {
     dom.timelineGame.className = "timeline-game timeline-game--empty";
-    dom.timelineGame.textContent = "The tournament has not logged any completed games yet for this group.";
+    dom.timelineGame.textContent = "No completed games are on the board for this group yet.";
     return;
   }
 
@@ -2125,13 +2125,13 @@ function renderTimeline(model, standings, snapshotIndex) {
         <span class="pill pill--accent">${escapeHtml(leaders.valueText)}</span>
       </div>
       <div class="timeline-game__leaders">
-        <p class="timeline-game__leaders-label">Top line right now</p>
+        <p class="timeline-game__leaders-label">Leaders right now</p>
         ${renderLeaderBadgeList(leaders.entries)}
       </div>
       <p class="timeline-game__copy">${escapeHtml(leaderSummary)}</p>
       ${
         lastGame.gameUrl
-          ? `<a class="timeline-game__link" href="${escapeHtml(lastGame.gameUrl)}" target="_blank" rel="noreferrer">Open the last completed matchup on ESPN</a>`
+          ? `<a class="timeline-game__link" href="${escapeHtml(lastGame.gameUrl)}" target="_blank" rel="noreferrer">Open that matchup on ESPN</a>`
           : ""
       }
     `;
@@ -2169,7 +2169,7 @@ function renderTimeline(model, standings, snapshotIndex) {
         .join("")}
     </div>
     <div class="timeline-game__leaders">
-      <p class="timeline-game__leaders-label">Top line before tip</p>
+      <p class="timeline-game__leaders-label">Leaders before tip</p>
       ${renderLeaderBadgeList(leaders.entries)}
     </div>
     <p class="timeline-game__copy">${escapeHtml(leaderSummary)}</p>
@@ -2188,7 +2188,7 @@ function renderChart(model, selectedIndex) {
   if (!chartEntries.length || totalSnapshots <= 1) {
     finishChartScrub();
     dom.chartPanel.className = "chart-panel chart-panel--empty";
-    dom.chartPanel.textContent = "Load a group with completed games to render the top-10 chart.";
+    dom.chartPanel.textContent = "Load a group with completed games to draw the top-10 race.";
     dom.leaderLegend.innerHTML = "";
     return;
   }
@@ -2451,7 +2451,7 @@ function buildPointTicks(maxValue, minStep = 10) {
 function renderStandings(model, standings) {
   if (!standings.length) {
     dom.standingsPanel.className = "table-wrap table-wrap--empty";
-    dom.standingsPanel.textContent = "No standings available for this snapshot.";
+    dom.standingsPanel.textContent = "No standings are available for this snapshot.";
     return;
   }
 
@@ -2541,7 +2541,7 @@ function renderEspnOutlook(model) {
   const forecastAvailable = model.forecast.available;
   let forecastCopy = forecastAvailable
     ? "This view uses ESPN's current win odds for the loaded entries."
-    : "This view uses current score and remaining possible points to show who still has a path to first.";
+    : "This view uses current score and remaining possible points to show who can still catch first.";
 
   if (model.group.limited) {
     forecastCopy += ` ${getLargeGroupNote(model)}`;
@@ -2597,7 +2597,7 @@ function renderProjectionOutlook(model) {
   const projection = model.oddsProjection;
 
   if (!projection?.standings?.length) {
-    const reason = projection?.reason || "Import an EvanMiya tournament-odds CSV to project the group finish.";
+    const reason = projection?.reason || "Import an EvanMiya tournament-odds CSV to add a projected finish view.";
 
     return `
       <p class="outlook-note">${escapeHtml(reason)}</p>
@@ -2609,7 +2609,7 @@ function renderProjectionOutlook(model) {
             <span class="stack-list__value">Waiting</span>
           </div>
           <p class="stack-list__meta">
-            Import the public EvanMiya tournament-odds CSV to add projected finish scores for each loaded bracket.
+            Import the public EvanMiya tournament-odds CSV to estimate where each loaded bracket is headed.
           </p>
         </div>
       </div>
@@ -2622,7 +2622,7 @@ function renderProjectionOutlook(model) {
       modelEntry: model.entries.find(candidate => candidate.id === entry.entryId)
     }))
     .filter(entry => entry.modelEntry);
-  const note = `Projected finish uses imported EvanMiya round-advance odds as expected-value weights for each remaining pick. It is not a full bracket simulation. ${projection.teamsCoveredPct.toFixed(
+  const note = `Projected finish uses imported EvanMiya round-advance odds to weight each remaining pick by expected points. It is directional, not a full bracket simulation. ${projection.teamsCoveredPct.toFixed(
     0
   )}% of bracket teams matched.`;
 
@@ -2686,7 +2686,7 @@ function syncImportedOddsUi() {
   dom.importOddsButton.textContent = importedOdds ? "Replace Odds" : "Import Odds";
 
   if (!importedOdds) {
-    dom.oddsStatus.textContent = "Import an EvanMiya tournament-odds CSV to add projected finish scores.";
+    dom.oddsStatus.textContent = "Import an EvanMiya tournament-odds CSV to add a projected finish view.";
     return;
   }
 
@@ -2710,8 +2710,8 @@ function renderPicksTable(model) {
 
   if (!model) {
     dom.picksPanel.className = "table-wrap table-wrap--empty";
-    dom.picksPanel.textContent = "The picks matrix will appear here.";
-    dom.picksSummary.textContent = "Load a group to inspect bracket picks and export them as CSV.";
+    dom.picksPanel.textContent = "The picks table will appear here.";
+    dom.picksSummary.textContent = "Load a group to inspect picks and export a CSV.";
     return;
   }
 
@@ -2726,11 +2726,11 @@ function renderPicksTable(model) {
         : `${selectedRounds.length} selected rounds`;
   const largeGroupNote = model.group.limited ? ` ${getLargeGroupNote(model)}` : "";
 
-  dom.picksSummary.textContent = `Showing ${formatGameCount(propositions.length)} from ${roundLabel}. CSV export downloads all loaded rounds by default.${largeGroupNote}`;
+  dom.picksSummary.textContent = `Showing ${formatGameCount(propositions.length)} from ${roundLabel}. CSV export always includes every loaded round.${largeGroupNote}`;
 
   if (!propositions.length) {
     dom.picksPanel.className = "table-wrap table-wrap--empty";
-    dom.picksPanel.textContent = "No picks are available for that round filter.";
+    dom.picksPanel.textContent = "No picks match that round filter.";
     return;
   }
 
@@ -2798,7 +2798,7 @@ function renderDetails(model) {
     .join(" • ");
   const importedOddsNote = model.oddsProjection?.standings?.length
     ? `Imported ${model.oddsProjection.source} odds are weighting each remaining pick by expected points.`
-    : "You can optionally import EvanMiya tournament odds to add projected finish scores.";
+    : "You can optionally import EvanMiya tournament odds to add a projected finish view.";
 
   dom.detailsPanel.innerHTML = `
     <div class="details-grid">
@@ -2835,7 +2835,7 @@ function renderDetails(model) {
     </div>
     <ul class="details-list">
       <li>Accuracy is based on decided games at the selected moment.</li>
-      <li>The timeline rewinds the standings game by game through the tournament.</li>
+      <li>The replay rewinds the standings one completed game at a time.</li>
       <li>${escapeHtml(model.group.limited ? getLargeGroupNote(model) : `All ${model.group.loadedEntries} loaded entries are included in this view.`)}</li>
       <li>When available, the win outlook uses ESPN's current win odds.</li>
       <li>${escapeHtml(importedOddsNote)}</li>
@@ -2847,25 +2847,25 @@ function renderEmptyState() {
   finishChartScrub();
   renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
-  dom.chartSnapshotStrip.textContent = "Load a group to keep the current snapshot next to the chart.";
+  dom.chartSnapshotStrip.textContent = "Load a group to pin the live snapshot beside the chart.";
   dom.chartPanel.className = "chart-panel chart-panel--empty";
-  dom.chartPanel.textContent = "Load a group to render the top-10 chart.";
+  dom.chartPanel.textContent = "Load a group to draw the top-10 race.";
   dom.chartScrubber.style.setProperty("--plot-left", "4.3%");
   dom.chartScrubber.style.setProperty("--plot-right", "21.5%");
   dom.leaderLegend.innerHTML = "";
   dom.outlookPanel.className = "outlook-panel outlook-panel--empty";
-  dom.outlookPanel.textContent = "Late-round outlook will appear here after a group loads.";
+  dom.outlookPanel.textContent = "Load a group to see live paths and projected finishes.";
   dom.picksPanel.className = "table-wrap table-wrap--empty";
-  dom.picksPanel.textContent = "The picks matrix will appear here.";
-  dom.picksSummary.textContent = "Load a group to inspect bracket picks and export them as CSV.";
+  dom.picksPanel.textContent = "The picks table will appear here.";
+  dom.picksSummary.textContent = "Load a group to inspect picks and export a CSV.";
   dom.standingsPanel.className = "table-wrap table-wrap--empty";
   dom.standingsPanel.textContent = "The standings table will appear here.";
   dom.timelineGame.className = "timeline-game timeline-game--empty";
-  dom.timelineGame.textContent = "Load a group to inspect the schedule and the pregame leaders.";
+  dom.timelineGame.textContent = "Load a group to read each game's swing.";
   dom.timelineCaption.textContent = "No historical snapshots yet.";
   dom.detailsPanel.innerHTML = `
     <p class="details-panel__empty">
-      Load a group to see scoring, entry counts, and how the timeline is being read.
+      Load a group to see scoring, entry counts, and how the replay works.
     </p>
   `;
   dom.summarySnapshot.textContent = "No group loaded";
@@ -2944,7 +2944,7 @@ async function loadGroup(rawInput, rawSeason) {
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
   state.picksRoundIds = [];
-  setStatus("Loading group data…", "loading");
+  setStatus("Opening the board…", "loading");
 
   try {
     const challenge = await fetchChallenge(lookup.season);
@@ -2968,8 +2968,8 @@ async function loadGroup(rawInput, rawSeason) {
     rememberRecentGroup(state.model);
     setStatus(
       state.model.group.limited
-        ? `Loaded ${state.model.group.name} from the ${state.model.challenge.season} tournament. ${getLargeGroupNote(state.model)}`
-        : `Loaded ${state.model.group.name} with ${state.model.group.size} entries from the ${state.model.challenge.season} tournament.`,
+        ? `Opened ${state.model.group.name} from the ${state.model.challenge.season} tournament. ${getLargeGroupNote(state.model)}`
+        : `Opened ${state.model.group.name} with ${state.model.group.size} entries from the ${state.model.challenge.season} tournament.`,
       "success"
     );
   } catch (error) {
@@ -3064,9 +3064,9 @@ function openMobileExportSheet(title) {
   }
 
   revokeExportSheetUrl();
-  dom.exportSheetTitle.textContent = title || "Preparing export";
-  dom.exportSheetNote.textContent = "Getting your file ready for this device.";
-  dom.exportSheetPreview.innerHTML = '<div class="export-sheet__loading">Preparing your export...</div>';
+  dom.exportSheetTitle.textContent = title || "Preparing CSV";
+  dom.exportSheetNote.textContent = "Getting your export ready for this device.";
+  dom.exportSheetPreview.innerHTML = '<div class="export-sheet__loading">Building your export…</div>';
   dom.exportSheetActions.innerHTML = "";
   dom.exportSheet.hidden = false;
   window.requestAnimationFrame(() => {
@@ -3081,8 +3081,8 @@ function closeMobileExportSheet() {
 
   revokeExportSheetUrl();
   dom.exportSheet.hidden = true;
-  dom.exportSheetTitle.textContent = "Preparing export";
-  dom.exportSheetNote.textContent = "Getting your file ready for this device.";
+  dom.exportSheetTitle.textContent = "Preparing CSV";
+  dom.exportSheetNote.textContent = "Getting your export ready for this device.";
   dom.exportSheetPreview.innerHTML = "";
   dom.exportSheetActions.innerHTML = "";
 }
@@ -3123,7 +3123,7 @@ async function populateMobileExportSheet(blob, fileName, title) {
 
   dom.exportSheetTitle.textContent = title;
   dom.exportSheetNote.textContent =
-    "Tap save to try a direct download. If your browser opens the file instead, use copy or open it and share from there.";
+    "Tap save to try a direct download. If the file opens in the browser instead, use copy or open it and share from there.";
   dom.exportSheetPreview.innerHTML = `<pre class="export-sheet__code">${previewText}${clipped ? "\n\n..." : ""}</pre>`;
   dom.exportSheetActions.innerHTML = `
     <a
@@ -3229,7 +3229,7 @@ async function downloadCurrentPicksCsv() {
   if (result === "shared") {
     setStatus("CSV ready to share.", "success");
   } else if (result === "sheet") {
-    setStatus("CSV is ready in the mobile export sheet.", "success");
+    setStatus("CSV is ready in the export sheet.", "success");
   } else if (result === "downloaded") {
     setStatus("CSV download started.", "success");
   }
@@ -3350,7 +3350,7 @@ function handleClearOdds() {
   }
 
   state.outlookMode = OUTLOOK_MODE_ESPN;
-  setStatus("Cleared imported tournament odds.", "success");
+  setStatus("Imported tournament odds cleared.", "success");
   render();
 }
 

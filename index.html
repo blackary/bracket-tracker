@@ -7,13 +7,13 @@
     <title>Bracket Tracker</title>
     <meta
       name="description"
-      content="Track ESPN Tournament Challenge group leaders over time."
+      content="Replay any public ESPN Tournament Challenge group game by game."
     />
     <meta property="og:title" content="Bracket Tracker" />
-    <meta property="og:description" content="Track ESPN Tournament Challenge group leaders over time." />
+    <meta property="og:description" content="Replay any public ESPN Tournament Challenge group game by game." />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Bracket Tracker" />
-    <meta name="twitter:description" content="Track ESPN Tournament Challenge group leaders over time." />
+    <meta name="twitter:description" content="Replay any public ESPN Tournament Challenge group game by game." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,30 +26,30 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero__copy">
-          <p class="eyebrow">ESPN Group History</p>
+          <p class="eyebrow">ESPN Group Replay</p>
           <h1>Bracket Tracker</h1>
           <p class="hero__lede">
-            Load an ESPN Tournament Challenge group, rewind to any completed
-            game, compare leaders by ESPN points or pick accuracy, and see who
-            still has a path to win.
+            Replay any public ESPN Tournament Challenge group game by game.
+            Scrub the tournament, compare the race by ESPN points or accuracy,
+            and see how the finish line is shaping up.
           </p>
           <div class="hero__highlights" aria-label="Key features">
-            <span class="hero__highlight">Game-by-game rewind</span>
-            <span class="hero__highlight">Top 10 movement</span>
-            <span class="hero__highlight">Odds projection</span>
+            <span class="hero__highlight">Game-by-game replay</span>
+            <span class="hero__highlight">Top 10 race</span>
+            <span class="hero__highlight">Projected finish</span>
           </div>
           <div id="hero-group-spotlight" class="hero-group hero-group--empty" aria-live="polite">
-            <p class="hero-group__label">Currently Tracking</p>
+            <p class="hero-group__label">Tracking Now</p>
             <h2 id="hero-group-name" class="hero-group__name">No group loaded</h2>
             <p id="hero-group-meta" class="hero-group__meta">
-              Load a public ESPN Tournament Challenge group to start tracking its history.
+              Choose a public ESPN group to bring its tournament race into view.
             </p>
           </div>
         </div>
 
         <form id="group-form" class="lookup-card" autocomplete="off">
           <label class="field">
-            <span class="field__label">Group ID or ESPN group URL</span>
+            <span class="field__label">ESPN group link or group ID</span>
             <input
               id="group-input"
               class="field__input"
@@ -90,13 +90,13 @@
           </label>
 
           <p class="lookup-card__hint">
-            Paste a group link or ID to load the board.
+            Public groups only.
           </p>
         </form>
       </header>
 
       <div id="status-banner" class="status-banner status-banner--idle">
-        Enter a group ID to load the timeline.
+        Paste a public ESPN group link or ID to open the tracker.
       </div>
 
       <main class="dashboard">
@@ -135,8 +135,8 @@
           <article class="card card--chart">
             <div class="card__header card__header--split">
               <div>
-                <p class="card__eyebrow">Top 10 Graph</p>
-                <h2 class="card__title">How the selected top 10 moved over time</h2>
+                <p class="card__eyebrow">Top 10 Race</p>
+                <h2 class="card__title">How the selected top 10 changed over time</h2>
               </div>
 
               <div class="control-stack">
@@ -195,11 +195,11 @@
             </div>
 
             <div id="chart-snapshot-strip" class="snapshot-strip snapshot-strip--empty">
-              Load a group to keep the current snapshot next to the chart.
+              Load a group to pin the live snapshot beside the chart.
             </div>
 
             <div id="chart-panel" class="chart-panel chart-panel--empty">
-              Load a group to render the top-10 chart.
+              Load a group to draw the top-10 race.
             </div>
 
             <div id="chart-scrubber" class="chart-scrubber">
@@ -225,19 +225,19 @@
 
           <article class="card card--timeline">
             <div class="card__header">
-              <p class="card__eyebrow">Game Impact</p>
-              <h2 class="card__title">Details for the selected moment</h2>
+              <p class="card__eyebrow">Game Swing</p>
+              <h2 class="card__title">What changed at the selected moment</h2>
             </div>
 
             <div id="timeline-game" class="timeline-game timeline-game--empty">
-              Load a group to inspect the schedule and the pregame leaders.
+              Load a group to read each game's swing.
             </div>
           </article>
 
           <article class="card card--table">
             <div class="card__header">
               <p class="card__eyebrow">Snapshot Standings</p>
-              <h2 class="card__title">Rankings at the selected moment</h2>
+              <h2 class="card__title">Standings at the selected moment</h2>
             </div>
             <div id="standings-panel" class="table-wrap table-wrap--empty">
               The standings table will appear here.
@@ -286,23 +286,22 @@
                   </div>
                 </div>
                 <p id="odds-status" class="outlook-status">
-                  Import an EvanMiya tournament-odds CSV to add projected finish scores.
+                  Import an EvanMiya tournament-odds CSV to add a projected finish view.
                 </p>
               </div>
               <div id="outlook-panel" class="outlook-panel outlook-panel--empty">
-                Late-round outlook will appear here after a group loads.
+                Load a group to see live paths and projected finishes.
               </div>
             </article>
 
             <article class="card">
               <div class="card__header">
-                <p class="card__eyebrow">Group Notes</p>
-                <h2 class="card__title">About This View</h2>
+                <p class="card__eyebrow">Board Notes</p>
+                <h2 class="card__title">How to read this board</h2>
               </div>
               <div id="details-panel" class="details-panel">
                 <p class="details-panel__empty">
-                  Load a group to see scoring, entry counts, and how the
-                  timeline is being read.
+                  Load a group to see scoring, entry counts, and how the replay works.
                 </p>
               </div>
             </article>
@@ -311,8 +310,8 @@
           <article class="card card--picks">
             <div class="card__header card__header--split">
               <div>
-                <p class="card__eyebrow">Picks Matrix</p>
-                <h2 class="card__title">View every bracket pick as a table</h2>
+                <p class="card__eyebrow">Picks Table</p>
+                <h2 class="card__title">Read every bracket pick in one table</h2>
               </div>
 
               <div class="card__actions">
@@ -334,11 +333,11 @@
             </div>
 
             <p id="picks-summary" class="timeline-caption">
-              Load a group to inspect bracket picks and export them as CSV.
+              Load a group to inspect picks and export a CSV.
             </p>
 
             <div id="picks-panel" class="table-wrap table-wrap--empty">
-              The picks matrix will appear here.
+              The picks table will appear here.
             </div>
           </article>
         </section>
@@ -349,16 +348,16 @@
       <div class="export-sheet__card" role="dialog" aria-modal="true" aria-labelledby="export-sheet-title">
         <div class="export-sheet__header">
           <div>
-            <p class="eyebrow">Mobile Export</p>
-            <h2 id="export-sheet-title" class="card__title">Preparing export</h2>
+            <p class="eyebrow">CSV Export</p>
+            <h2 id="export-sheet-title" class="card__title">Preparing CSV</h2>
           </div>
           <button id="export-sheet-close" class="button button--ghost export-sheet__close" type="button">
             Close
           </button>
         </div>
-        <p id="export-sheet-note" class="lookup-card__hint">Getting your file ready for this device.</p>
+        <p id="export-sheet-note" class="lookup-card__hint">Getting your export ready for this device.</p>
         <div id="export-sheet-preview" class="export-sheet__preview">
-          <div class="export-sheet__loading">Preparing your export...</div>
+          <div class="export-sheet__loading">Building your export…</div>
         </div>
         <div id="export-sheet-actions" class="export-sheet__actions"></div>
       </div>
