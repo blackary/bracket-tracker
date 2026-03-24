@@ -20,7 +20,7 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20260324a" />
+    <link rel="stylesheet" href="./styles.css?v=20260324b" />
   </head>
   <body>
     <div class="page-shell">
@@ -336,6 +336,29 @@
       </div>
     </div>
 
-    <script type="module" src="./app.js?v=20260324a"></script>
+    <div id="projection-compare-sheet" class="export-sheet projection-compare-sheet" hidden>
+      <div
+        class="export-sheet__card projection-compare-sheet__card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="projection-compare-title"
+      >
+        <div class="export-sheet__header">
+          <div>
+            <p class="eyebrow">Projection Comparison</p>
+            <h2 id="projection-compare-title" class="card__title">Projection comparison</h2>
+          </div>
+          <button id="projection-compare-close" class="button button--ghost export-sheet__close" type="button">
+            Close
+          </button>
+        </div>
+        <p id="projection-compare-note" class="lookup-card__hint">
+          Select two projected finishes to compare the math behind both brackets.
+        </p>
+        <div id="projection-compare-body" class="projection-compare-sheet__body"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js?v=20260324b"></script>
   </body>
 </html>

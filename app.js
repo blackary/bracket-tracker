@@ -77,6 +77,8 @@ const state = {
   pendingSelectionRender: null,
   playbackTimer: null,
   picksRoundIds: [],
+  projectionCompareEntryIds: [],
+  projectionCompareOpen: false,
   season: getDefaultSeason(),
   recentGroups: loadRecentGroups(),
   rawInput: "",
@@ -91,6 +93,11 @@ const dom = {
   exportSheetNote: document.getElementById("export-sheet-note"),
   exportSheetPreview: document.getElementById("export-sheet-preview"),
   exportSheetTitle: document.getElementById("export-sheet-title"),
+  projectionCompareBody: document.getElementById("projection-compare-body"),
+  projectionCompareClose: document.getElementById("projection-compare-close"),
+  projectionCompareNote: document.getElementById("projection-compare-note"),
+  projectionCompareSheet: document.getElementById("projection-compare-sheet"),
+  projectionCompareTitle: document.getElementById("projection-compare-title"),
   chartPanel: document.getElementById("chart-panel"),
   chartSnapshotStrip: document.getElementById("chart-snapshot-strip"),
   chartScrubber: document.getElementById("chart-scrubber"),
@@ -1136,6 +1143,7 @@ function buildImportedOddsProjection(model, importedOdds) {
       let expectedRemainingPoints = 0;
       let matchedPicks = 0;
       let unresolvedPicks = 0;
+      const details = [];
 
       pendingPropositions.forEach(proposition => {
         const pick = entry.picksByPropositionId.get(proposition.id);
@@ -1143,8 +1151,30 @@ function buildImportedOddsProjection(model, importedOdds) {
         const roundOrder = roundOrderById.get(Number(proposition.scoringPeriodId));
         const teamOdds = pickedOutcome ? oddsTeamByOutcomeId.get(pickedOutcome.outcomeId) : null;
         const winProbability = teamOdds && roundOrder ? teamOdds.roundProbabilities[roundOrder] : null;
+        const pointValue = model.pointValueByPeriod.get(Number(proposition.scoringPeriodId)) || 0;
+        const pickedTeam = pickedOutcome ? model.teamByOutcomeId.get(pickedOutcome.outcomeId) : null;
+        const weighted = typeof winProbability === "number";
+        const expectedPoints = weighted ? pointValue * winProbability : null;
 
-        if (typeof winProbability !== "number") {
+        details.push({
+          expectedPoints,
+          gameLabel: getExportGameLabel(proposition),
+          matchupLabel: proposition.name,
+          oddsMatched: Boolean(teamOdds && roundOrder),
+          pickedOutcomeId: pickedOutcome?.outcomeId || "",
+          pickLabel: pickedTeam?.name || pickedOutcome?.name || pickedTeam?.abbrev || pickedOutcome?.abbrev || "",
+          pointValue,
+          probability: weighted ? winProbability : null,
+          propositionId: proposition.id,
+          roundAbbrev: proposition.roundAbbrev,
+          roundId: Number(proposition.scoringPeriodId) || 0,
+          roundLabel: proposition.roundLabel,
+          sortDate: proposition.date || 0,
+          sortOrder: proposition.displayOrder || 0,
+          weighted
+        });
+
+        if (!weighted) {
           if (pickedOutcome) {
             unresolvedPicks += 1;
           }
@@ -1152,13 +1182,14 @@ function buildImportedOddsProjection(model, importedOdds) {
         }
 
         matchedPicks += 1;
-        expectedRemainingPoints += (model.pointValueByPeriod.get(Number(proposition.scoringPeriodId)) || 0) * winProbability;
+        expectedRemainingPoints += expectedPoints;
       });
 
       return {
         coveragePct: matchedPicks + unresolvedPicks ? percentage(matchedPicks, matchedPicks + unresolvedPicks) : 100,
         currentPoints: entry.currentPoints,
         currentRank: entry.currentRank,
+        details,
         entryId: entry.id,
         expectedRemainingPoints,
         matchedPicks,
@@ -1200,6 +1231,27 @@ function buildImportedOddsProjection(model, importedOdds) {
 
 function applyImportedOddsToModel(model) {
   model.oddsProjection = buildImportedOddsProjection(model, state.importedOdds);
+}
+
+function clearProjectionCompareSelection() {
+  state.projectionCompareEntryIds = [];
+  state.projectionCompareOpen = false;
+}
+
+function sanitizeProjectionCompareSelection(model) {
+  const validIds = new Set(model?.oddsProjection?.standings?.map(entry => entry.entryId) || []);
+  const nextIds = state.projectionCompareEntryIds.filter(entryId => validIds.has(entryId)).slice(-2);
+
+  if (
+    nextIds.length !== state.projectionCompareEntryIds.length ||
+    nextIds.some((entryId, index) => entryId !== state.projectionCompareEntryIds[index])
+  ) {
+    state.projectionCompareEntryIds = nextIds;
+  }
+
+  if (state.projectionCompareEntryIds.length < 2) {
+    state.projectionCompareOpen = false;
+  }
 }
 
 function getSnapshotLabel(model, index) {
@@ -1649,6 +1701,23 @@ function formatProjectedPoints(value) {
 function formatExpectedRemainingPoints(value) {
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toFixed(1)} expected`;
+}
+
+function formatProjectedProbability(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "No odds match";
+  }
+
+  return `${(value * 100).toFixed(1)}% to hit`;
+}
+
+function formatProjectionEdgeSummary(delta, leftLabel, rightLabel, suffix = "pts") {
+  if (Math.abs(delta) <= 0.05) {
+    return `Even at ${Math.abs(delta).toFixed(1)} ${suffix}`;
+  }
+
+  const leader = delta >= 0 ? leftLabel : rightLabel;
+  return `${leader} by ${Math.abs(delta).toFixed(1)} ${suffix}`;
 }
 
 function formatRankDisplay(rank) {
@@ -2900,6 +2969,8 @@ function renderProjectionOutlook(model) {
     `;
   }
 
+  sanitizeProjectionCompareSelection(model);
+
   const projectedEntries = projection.standings
     .map(entry => ({
       ...entry,
@@ -2909,12 +2980,21 @@ function renderProjectionOutlook(model) {
   const note = `Projected finish uses imported EvanMiya round-advance odds to weight each remaining pick by expected points. It is directional, not a full bracket simulation. ${projection.teamsCoveredPct.toFixed(
     0
   )}% of bracket teams matched.`;
+  const comparePrompt =
+    state.projectionCompareEntryIds.length === 2 && state.projectionCompareOpen
+      ? "Two projected finishes selected. The breakdown is open."
+      : state.projectionCompareEntryIds.length === 2
+        ? "Two projected finishes selected. Tap either card to swap the compare pair."
+      : state.projectionCompareEntryIds.length === 1
+        ? "Pick one more projected finish to compare the math behind both brackets."
+        : "Click any two projected finishes to compare their game-by-game expected points.";
 
   return `
     <p class="outlook-note">${escapeHtml(note)}</p>
+    <p class="outlook-note outlook-note--secondary">${escapeHtml(comparePrompt)}</p>
     <div class="stack-list">
       ${projectedEntries
-        .slice(0, 8)
+        .slice(0, 10)
         .map(entry => {
           const visibleMemberName = getVisibleMemberName(entry.modelEntry);
           const projectedBack = entry.projectedBack <= 0.05 ? "Projected leader" : `${entry.projectedBack.toFixed(1)} back`;
@@ -2924,10 +3004,20 @@ function renderProjectionOutlook(model) {
             projectedBack,
             `${entry.matchedPicks} future picks weighted`
           ].filter(Boolean);
+          const selectedIndex = state.projectionCompareEntryIds.indexOf(entry.entryId);
+          const selected = selectedIndex >= 0;
 
           return `
-            <div class="stack-list__item">
-              <p class="stack-list__kicker">Projected finish</p>
+            <button
+              class="stack-list__item stack-list__item--interactive${selected ? " is-selected" : ""}"
+              type="button"
+              data-projection-entry-id="${escapeAttribute(entry.entryId)}"
+              aria-pressed="${selected ? "true" : "false"}"
+            >
+              <div class="stack-list__topline">
+                <p class="stack-list__kicker">Projected finish</p>
+                ${selected ? `<span class="stack-list__selection">Compare ${selectedIndex + 1}</span>` : ""}
+              </div>
               <div class="stack-list__title-row">
                 <span class="stack-list__title">${escapeHtml(entry.modelEntry.name)}</span>
                 <span class="stack-list__value">${escapeHtml(formatProjectedPoints(entry.projectedPoints))}</span>
@@ -2935,7 +3025,7 @@ function renderProjectionOutlook(model) {
               <p class="stack-list__meta">
                 ${escapeHtml(metaParts.join(" • "))}
               </p>
-            </div>
+            </button>
           `;
         })
         .join("")}
@@ -2946,6 +3036,293 @@ function renderProjectionOutlook(model) {
 function renderOutlook(model) {
   dom.outlookPanel.className = "outlook-panel";
   dom.outlookPanel.innerHTML = getActiveOutlookMode(model) === OUTLOOK_MODE_PROJECTION ? renderProjectionOutlook(model) : renderEspnOutlook(model);
+}
+
+function getProjectionCompareSelection(model) {
+  if (!model?.oddsProjection?.standings?.length) {
+    return [];
+  }
+
+  const standingsByEntryId = new Map(model.oddsProjection.standings.map(entry => [entry.entryId, entry]));
+
+  return state.projectionCompareEntryIds
+    .map(entryId => {
+      const standing = standingsByEntryId.get(entryId);
+      const modelEntry = model.entries.find(candidate => candidate.id === entryId);
+
+      if (!standing || !modelEntry) {
+        return null;
+      }
+
+      return {
+        modelEntry,
+        standing
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildProjectionComparison(model) {
+  const selectedEntries = getProjectionCompareSelection(model);
+
+  if (selectedEntries.length !== 2) {
+    return null;
+  }
+
+  const [left, right] = selectedEntries;
+  const leftDetailsByPropId = new Map(left.standing.details.map(detail => [detail.propositionId, detail]));
+  const rightDetailsByPropId = new Map(right.standing.details.map(detail => [detail.propositionId, detail]));
+  const propositionIds = [...new Set([...leftDetailsByPropId.keys(), ...rightDetailsByPropId.keys()])];
+  const rows = propositionIds
+    .map(propositionId => {
+      const leftDetail = leftDetailsByPropId.get(propositionId) || null;
+      const rightDetail = rightDetailsByPropId.get(propositionId) || null;
+      const referenceDetail = leftDetail || rightDetail;
+      const leftExpected = leftDetail?.expectedPoints || 0;
+      const rightExpected = rightDetail?.expectedPoints || 0;
+
+      return {
+        expectedDelta: leftExpected - rightExpected,
+        gameLabel: referenceDetail?.gameLabel || "Future game",
+        leftDetail,
+        pointValue: referenceDetail?.pointValue || 0,
+        propositionId,
+        rightDetail,
+        roundAbbrev: referenceDetail?.roundAbbrev || "",
+        roundId: referenceDetail?.roundId || 0,
+        roundLabel: referenceDetail?.roundLabel || "",
+        samePick:
+          Boolean(leftDetail?.pickedOutcomeId) &&
+          Boolean(rightDetail?.pickedOutcomeId) &&
+          leftDetail.pickedOutcomeId === rightDetail.pickedOutcomeId,
+        sortDate: referenceDetail?.sortDate || 0,
+        sortOrder: referenceDetail?.sortOrder || 0,
+        swingAbs: Math.abs(leftExpected - rightExpected)
+      };
+    })
+    .sort((leftRow, rightRow) => {
+      if (leftRow.swingAbs !== rightRow.swingAbs) {
+        return rightRow.swingAbs - leftRow.swingAbs;
+      }
+
+      if (leftRow.pointValue !== rightRow.pointValue) {
+        return rightRow.pointValue - leftRow.pointValue;
+      }
+
+      if (leftRow.roundId !== rightRow.roundId) {
+        return leftRow.roundId - rightRow.roundId;
+      }
+
+      if (leftRow.sortDate !== rightRow.sortDate) {
+        return leftRow.sortDate - rightRow.sortDate;
+      }
+
+      if (leftRow.sortOrder !== rightRow.sortOrder) {
+        return leftRow.sortOrder - rightRow.sortOrder;
+      }
+
+      return leftRow.gameLabel.localeCompare(rightRow.gameLabel);
+    });
+  const weightedRows = rows.filter(row => row.leftDetail?.pickedOutcomeId || row.rightDetail?.pickedOutcomeId);
+  const topSwing = rows.find(row => row.swingAbs > 0.05) || null;
+
+  return {
+    currentEdge: left.standing.currentPoints - right.standing.currentPoints,
+    differentPickCount: weightedRows.filter(row => !row.samePick).length,
+    futureEdge: left.standing.expectedRemainingPoints - right.standing.expectedRemainingPoints,
+    left,
+    projectedEdge: left.standing.projectedPoints - right.standing.projectedPoints,
+    right,
+    rows,
+    samePickCount: weightedRows.filter(row => row.samePick).length,
+    topSwing
+  };
+}
+
+function renderProjectionCompareSummaryCard(selection, sideLabel) {
+  const visibleMemberName = getVisibleMemberName(selection.modelEntry);
+
+  return `
+    <article class="projection-compare__summary-card">
+      <p class="stack-list__kicker">${escapeHtml(sideLabel)}</p>
+      <h3 class="projection-compare__summary-title">${escapeHtml(selection.modelEntry.name)}</h3>
+      ${
+        visibleMemberName
+          ? `<p class="projection-compare__summary-member">${escapeHtml(visibleMemberName)}</p>`
+          : ""
+      }
+      <div class="projection-compare__summary-score">${escapeHtml(formatProjectedPoints(selection.standing.projectedPoints))}</div>
+      <div class="projection-compare__summary-metrics">
+        <div>
+          <span class="projection-compare__metric-label">Current</span>
+          <span class="projection-compare__metric-value">${escapeHtml(formatMetricDisplay(selection.standing.currentPoints, METRIC_POINTS))}</span>
+        </div>
+        <div>
+          <span class="projection-compare__metric-label">Expected left</span>
+          <span class="projection-compare__metric-value">${escapeHtml(formatExpectedRemainingPoints(selection.standing.expectedRemainingPoints))}</span>
+        </div>
+        <div>
+          <span class="projection-compare__metric-label">Weighted picks</span>
+          <span class="projection-compare__metric-value">${escapeHtml(
+            `${selection.standing.matchedPicks} of ${selection.standing.matchedPicks + selection.standing.unresolvedPicks}`
+          )}</span>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderProjectionComparePick(detail) {
+  if (!detail?.pickedOutcomeId) {
+    return `
+      <div class="projection-compare__pick projection-compare__pick--muted">
+        <span class="projection-compare__pick-name">No live pick</span>
+        <span class="projection-compare__pick-meta">Nothing left to weight here.</span>
+      </div>
+    `;
+  }
+
+  const meta = detail.weighted
+    ? `${formatProjectedProbability(detail.probability)} • ${formatExpectedRemainingPoints(detail.expectedPoints).replace(" expected", " EV")}`
+    : "Picked team was not matched in the odds file.";
+
+  return `
+    <div class="projection-compare__pick${detail.weighted ? "" : " projection-compare__pick--muted"}">
+      <span class="projection-compare__pick-name">${escapeHtml(detail.pickLabel || "Unknown team")}</span>
+      <span class="projection-compare__pick-meta">${escapeHtml(meta)}</span>
+    </div>
+  `;
+}
+
+function renderProjectionCompareSheet() {
+  if (!dom.projectionCompareSheet) {
+    return;
+  }
+
+  const activeProjectionMode = getActiveOutlookMode(state.model) === OUTLOOK_MODE_PROJECTION;
+  const comparison = activeProjectionMode && state.projectionCompareOpen ? buildProjectionComparison(state.model) : null;
+
+  if (!comparison) {
+    dom.projectionCompareSheet.hidden = true;
+    dom.projectionCompareTitle.textContent = "Projection comparison";
+    dom.projectionCompareNote.textContent = "Select two projected finishes to compare the math behind both brackets.";
+    dom.projectionCompareBody.innerHTML = "";
+    return;
+  }
+
+  const topSwingText = comparison.topSwing
+    ? `${comparison.topSwing.gameLabel} • ${comparison.topSwing.swingAbs.toFixed(1)} pts`
+    : "No measurable swing between these future picks yet.";
+  const wasHidden = dom.projectionCompareSheet.hidden;
+
+  dom.projectionCompareTitle.textContent = `${comparison.left.modelEntry.name} vs ${comparison.right.modelEntry.name}`;
+  dom.projectionCompareNote.textContent =
+    "Projected finish is current ESPN points plus weighted future points from EvanMiya's round-advance odds. Tiebreakers and pick correlation are not simulated.";
+  dom.projectionCompareBody.innerHTML = `
+    <div class="projection-compare">
+      <div class="projection-compare__summary">
+        ${renderProjectionCompareSummaryCard(comparison.left, "Compare 1")}
+        ${renderProjectionCompareSummaryCard(comparison.right, "Compare 2")}
+      </div>
+
+      <div class="projection-compare__overview">
+        <div class="projection-compare__overview-item">
+          <span class="projection-compare__overview-label">Projected edge</span>
+          <strong>${escapeHtml(
+            formatProjectionEdgeSummary(
+              comparison.projectedEdge,
+              comparison.left.modelEntry.name,
+              comparison.right.modelEntry.name
+            )
+          )}</strong>
+        </div>
+        <div class="projection-compare__overview-item">
+          <span class="projection-compare__overview-label">Current board</span>
+          <strong>${escapeHtml(
+            formatProjectionEdgeSummary(
+              comparison.currentEdge,
+              comparison.left.modelEntry.name,
+              comparison.right.modelEntry.name
+            )
+          )}</strong>
+        </div>
+        <div class="projection-compare__overview-item">
+          <span class="projection-compare__overview-label">Future upside</span>
+          <strong>${escapeHtml(
+            formatProjectionEdgeSummary(
+              comparison.futureEdge,
+              comparison.left.modelEntry.name,
+              comparison.right.modelEntry.name
+            )
+          )}</strong>
+        </div>
+        <div class="projection-compare__overview-item">
+          <span class="projection-compare__overview-label">Shared vs split picks</span>
+          <strong>${escapeHtml(`${comparison.samePickCount} shared • ${comparison.differentPickCount} different`)}</strong>
+        </div>
+        <div class="projection-compare__overview-item">
+          <span class="projection-compare__overview-label">Biggest swing</span>
+          <strong>${escapeHtml(topSwingText)}</strong>
+        </div>
+      </div>
+
+      <div class="projection-compare__table-wrap">
+        <table class="projection-compare__table">
+          <thead>
+            <tr>
+              <th scope="col">Game</th>
+              <th scope="col">${escapeHtml(comparison.left.modelEntry.name)}</th>
+              <th scope="col">${escapeHtml(comparison.right.modelEntry.name)}</th>
+              <th scope="col">Swing</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${comparison.rows
+              .map(row => {
+                const leftExpected = row.leftDetail?.expectedPoints || 0;
+                const rightExpected = row.rightDetail?.expectedPoints || 0;
+                const swingLeader =
+                  Math.abs(row.expectedDelta) <= 0.05
+                    ? "Even"
+                    : row.expectedDelta > 0
+                      ? `${comparison.left.modelEntry.name} +${Math.abs(row.expectedDelta).toFixed(1)}`
+                      : `${comparison.right.modelEntry.name} +${Math.abs(row.expectedDelta).toFixed(1)}`;
+
+                return `
+                  <tr>
+                    <th scope="row">
+                      <div class="projection-compare__game">
+                        <span class="projection-compare__game-round">${escapeHtml(row.roundLabel || row.roundAbbrev || "Future round")}</span>
+                        <span class="projection-compare__game-title">${escapeHtml(row.gameLabel)}</span>
+                        <span class="projection-compare__game-meta">${escapeHtml(`${row.pointValue} pts${row.samePick ? " • same pick" : ""}`)}</span>
+                      </div>
+                    </th>
+                    <td>${renderProjectionComparePick(row.leftDetail)}</td>
+                    <td>${renderProjectionComparePick(row.rightDetail)}</td>
+                    <td>
+                      <div class="projection-compare__swing${Math.abs(row.expectedDelta) <= 0.05 ? " projection-compare__swing--even" : ""}">
+                        <span class="projection-compare__swing-leader">${escapeHtml(swingLeader)}</span>
+                        <span class="projection-compare__swing-meta">${escapeHtml(
+                          `${leftExpected.toFixed(1)} vs ${rightExpected.toFixed(1)} EV`
+                        )}</span>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  dom.projectionCompareSheet.hidden = false;
+
+  if (wasHidden) {
+    window.requestAnimationFrame(() => {
+      dom.projectionCompareClose?.focus();
+    });
+  }
 }
 
 function syncOutlookModeButtons() {
@@ -3146,6 +3523,7 @@ function renderEmptyState() {
   stopPlayback();
   finishChartScrub();
   state.focusedEntryId = "";
+  clearProjectionCompareSelection();
   renderHeroGroupSpotlight(null);
   dom.chartSnapshotStrip.className = "snapshot-strip snapshot-strip--empty";
   dom.chartSnapshotStrip.textContent = "Load a group to pin the live snapshot beside the chart.";
@@ -3185,6 +3563,7 @@ function renderEmptyState() {
   syncImportedOddsUi();
   syncOutlookModeButtons();
   syncPlaybackButton();
+  renderProjectionCompareSheet();
 }
 
 function renderSelectionState() {
@@ -3236,6 +3615,7 @@ function render() {
   renderHeroGroupSpotlight(state.model);
   renderSelectionState();
   renderOutlook(state.model);
+  renderProjectionCompareSheet();
   renderPicksTable(state.model);
   renderDetails(state.model);
   syncMetricButtons();
@@ -3271,6 +3651,7 @@ async function loadGroup(rawInput, rawSeason) {
   stopPlayback();
   finishChartScrub();
   state.focusedEntryId = "";
+  clearProjectionCompareSelection();
   state.loading = true;
   state.rawInput = lookup.groupId;
   state.season = lookup.season;
@@ -3680,6 +4061,9 @@ function handleOutlookModeToggle(event) {
   }
 
   state.outlookMode = nextMode;
+  if (nextMode !== OUTLOOK_MODE_PROJECTION) {
+    state.projectionCompareOpen = false;
+  }
   render();
 }
 
@@ -3717,6 +4101,7 @@ async function handleImportOddsClick() {
 function handleClearOdds() {
   state.importedOdds = null;
   persistImportedOdds();
+  clearProjectionCompareSelection();
 
   if (state.model) {
     applyImportedOddsToModel(state.model);
@@ -3905,6 +4290,43 @@ function handleLegendEntryClick(event) {
   toggleFocusedEntry(target.dataset.entryId);
 }
 
+function handleProjectionCardClick(event) {
+  const target = event.target.closest("[data-projection-entry-id]");
+
+  if (!target || !state.model || getActiveOutlookMode(state.model) !== OUTLOOK_MODE_PROJECTION) {
+    return;
+  }
+
+  const nextEntryId = target.dataset.projectionEntryId;
+  const currentIds = state.projectionCompareEntryIds;
+
+  if (!nextEntryId) {
+    return;
+  }
+
+  if (currentIds.includes(nextEntryId)) {
+    state.projectionCompareEntryIds = currentIds.filter(entryId => entryId !== nextEntryId);
+    state.projectionCompareOpen = state.projectionCompareEntryIds.length === 2;
+  } else if (currentIds.length < 2) {
+    state.projectionCompareEntryIds = [...currentIds, nextEntryId];
+    state.projectionCompareOpen = state.projectionCompareEntryIds.length === 2;
+  } else {
+    state.projectionCompareEntryIds = [currentIds[1], nextEntryId];
+    state.projectionCompareOpen = true;
+  }
+
+  renderOutlook(state.model);
+  renderProjectionCompareSheet();
+}
+
+function closeProjectionCompareSheet() {
+  state.projectionCompareOpen = false;
+  if (state.model) {
+    renderOutlook(state.model);
+  }
+  renderProjectionCompareSheet();
+}
+
 function init() {
   const lookup = getLookupFromUrl();
 
@@ -3936,9 +4358,30 @@ function init() {
   dom.chartPanel.addEventListener("lostpointercapture", handleChartPointerUp);
   dom.chartPanel.addEventListener("click", handleChartEntryClick);
   dom.leaderLegend.addEventListener("click", handleLegendEntryClick);
+  dom.outlookPanel.addEventListener("click", handleProjectionCardClick);
   dom.exportSheetClose?.addEventListener("click", closeMobileExportSheet);
   dom.exportSheet?.addEventListener("click", event => {
     if (event.target === dom.exportSheet) {
+      closeMobileExportSheet();
+    }
+  });
+  dom.projectionCompareClose?.addEventListener("click", closeProjectionCompareSheet);
+  dom.projectionCompareSheet?.addEventListener("click", event => {
+    if (event.target === dom.projectionCompareSheet) {
+      closeProjectionCompareSheet();
+    }
+  });
+  window.addEventListener("keydown", event => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (!dom.projectionCompareSheet?.hidden) {
+      closeProjectionCompareSheet();
+      return;
+    }
+
+    if (!dom.exportSheet?.hidden) {
       closeMobileExportSheet();
     }
   });

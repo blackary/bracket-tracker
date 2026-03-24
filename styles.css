@@ -617,6 +617,30 @@ select {
   width: 100%;
 }
 
+.projection-compare-sheet__card {
+  width: min(100%, 70rem);
+  max-height: min(88vh, 60rem);
+}
+
+.projection-compare-sheet .export-sheet__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.projection-compare-sheet .export-sheet__header > :first-child {
+  min-width: 0;
+}
+
+.projection-compare-sheet .export-sheet__close {
+  justify-self: end;
+}
+
+.projection-compare-sheet__body {
+  overflow: auto;
+  padding-right: 0.1rem;
+}
+
 .status-banner {
   display: flex;
   align-items: center;
@@ -1681,6 +1705,31 @@ select {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
 }
 
+.stack-list__item--interactive {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.stack-list__item--interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(24, 32, 44, 0.12);
+  box-shadow:
+    0 14px 26px rgba(37, 30, 19, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.stack-list__item--interactive.is-selected {
+  border-color: rgba(32, 78, 123, 0.22);
+  background: rgba(248, 244, 236, 0.98);
+  box-shadow:
+    0 16px 28px rgba(37, 30, 19, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
 .stack-list__kicker {
   margin: 0 0 0.18rem;
   color: var(--ink-faint);
@@ -1688,6 +1737,13 @@ select {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.stack-list__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .stack-list__title-row {
@@ -1712,12 +1768,224 @@ select {
   line-height: 1.5;
 }
 
+.stack-list__selection {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(32, 78, 123, 0.1);
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .outlook-note,
 .details-panel p,
 .details-panel li {
   margin: 0;
   color: var(--ink-soft);
   line-height: 1.6;
+}
+
+.outlook-note--secondary {
+  margin-top: -0.35rem;
+  font-size: 0.9rem;
+}
+
+.projection-compare {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.projection-compare__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.projection-compare__summary-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(24, 32, 44, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.projection-compare__summary-title {
+  margin: 0;
+  font-size: 1.18rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.projection-compare__summary-member {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.88rem;
+}
+
+.projection-compare__summary-score {
+  margin-top: 0.08rem;
+  font-family: "Newsreader", ui-serif, serif;
+  font-size: clamp(2rem, 3.2vw, 2.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.projection-compare__summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding-top: 0.25rem;
+}
+
+.projection-compare__metric-label {
+  display: block;
+  margin-bottom: 0.16rem;
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.projection-compare__metric-value {
+  display: block;
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.projection-compare__overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.projection-compare__overview-item {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.78rem;
+  border: 1px solid rgba(24, 32, 44, 0.08);
+  border-radius: 14px;
+  background: rgba(246, 240, 231, 0.9);
+}
+
+.projection-compare__overview-item strong {
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.projection-compare__overview-label {
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.projection-compare__table-wrap {
+  overflow: auto;
+  border: 1px solid rgba(24, 32, 44, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.projection-compare__table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.projection-compare__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.82rem 0.9rem;
+  border-bottom: 1px solid rgba(24, 32, 44, 0.08);
+  background: rgba(246, 240, 231, 0.98);
+  color: var(--ink-faint);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.projection-compare__table tbody th,
+.projection-compare__table tbody td {
+  vertical-align: top;
+  padding: 0.82rem 0.9rem;
+  border-bottom: 1px solid rgba(24, 32, 44, 0.06);
+}
+
+.projection-compare__table tbody tr:last-child th,
+.projection-compare__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.projection-compare__game {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.projection-compare__game-round,
+.projection-compare__game-meta {
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.projection-compare__game-title {
+  color: var(--ink);
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+
+.projection-compare__pick {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.projection-compare__pick--muted {
+  opacity: 0.76;
+}
+
+.projection-compare__pick-name {
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.projection-compare__pick-meta {
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.projection-compare__swing {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.projection-compare__swing--even {
+  opacity: 0.72;
+}
+
+.projection-compare__swing-leader {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.projection-compare__swing-meta {
+  color: var(--ink-faint);
+  font-size: 0.8rem;
 }
 
 .details-grid {
@@ -2080,6 +2348,12 @@ select {
   }
 
   .export-sheet__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .projection-compare__summary,
+  .projection-compare__overview,
+  .projection-compare__summary-metrics {
     grid-template-columns: 1fr;
   }
 }
