@@ -32,6 +32,7 @@
 - Removed the misleading public-group wording from the site copy and docs, since group links and IDs work regardless of ESPN's privacy label.
 - Reworked the chart timeline ticks so the default labels are horizontal and sparser, and added readable game tooltips on hover, focus, and selection.
 - Tightened the visual system to feel less generically generated: crisper paper cards, less blur, fewer pill shapes, and a more editorial hero and control treatment across desktop and mobile.
+- Switched member subtitles to prefer ESPN's richer owner names when available, with bracket-name fallbacks only for obviously generated handles and duplicate subtitle suppression when the bracket name already says the same thing.
 
 ## 2026-03-19
 

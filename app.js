@@ -1002,7 +1002,7 @@ function buildEntryModels(entries, completedProps, pointValueByPeriod, forecastM
       currentLosses: record.losses || 0,
       forecast,
       id: entry.id,
-      memberName: entry.member?.displayName || "Unknown member",
+      memberName: getPreferredMemberName(entry),
       name: entry.name || "Unnamed entry",
       percentilePct: Number(((currentScore.percentile || 0) * 100).toFixed(1)),
       picksByPropositionId,
@@ -1419,6 +1419,116 @@ function truncateLabel(value, maxLength = 20) {
   }
 
   return `${normalized.slice(0, Math.max(maxLength - 1, 1))}…`;
+}
+
+function looksLikeGeneratedHandle(value) {
+  const normalized = String(value ?? "").trim();
+
+  if (!normalized) {
+    return true;
+  }
+
+  return /^espnfan\d+$/i.test(normalized) || /^espn\d+$/i.test(normalized);
+}
+
+function looksLikeLikelyPersonName(value) {
+  const normalized = String(value ?? "").trim();
+
+  if (!normalized || /\d/.test(normalized)) {
+    return false;
+  }
+
+  if (/\b(picks?|bracket|brackets|pool|oasis|tunesquad|tune squad)\b/i.test(normalized)) {
+    return false;
+  }
+
+  if (!/^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,2}$/.test(normalized)) {
+    return false;
+  }
+
+  const parts = normalized.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 1) {
+    return normalized.length >= 4 && /[a-z]/.test(normalized.slice(1));
+  }
+
+  return true;
+}
+
+function formatMemberShortName(member) {
+  const firstName = String(member?.firstName || "").trim();
+  const lastName = String(member?.lastName || "").trim();
+
+  if (firstName && lastName) {
+    return `${firstName.charAt(0)}. ${lastName}`;
+  }
+
+  const fullName = String(member?.fullName || member?.customDisplayName || "").trim();
+
+  if (!fullName) {
+    return "";
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0)}. ${parts.slice(1).join(" ")}`;
+  }
+
+  return fullName;
+}
+
+function deriveOwnerNameFromEntryName(entryName) {
+  const normalized = String(entryName ?? "").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const possessiveMatch = normalized.match(/^(.+?)'s\s+(?:Picks?(?:\s+\d+)?|Bracket|Brackets|TuneSquad|Tune Squad|Oasis|Pool)\b/i);
+
+  if (possessiveMatch?.[1]) {
+    return possessiveMatch[1].trim();
+  }
+
+  if (/^Unnamed entry$/i.test(normalized)) {
+    return "";
+  }
+
+  // Single- or two-word bracket names are often actual names in ESPN groups.
+  if (looksLikeLikelyPersonName(normalized) && normalized.length <= 28) {
+    return normalized;
+  }
+
+  return "";
+}
+
+function getPreferredMemberName(entry) {
+  const member = entry?.member || {};
+  const explicitName = formatMemberShortName(member) || String(member.customDisplayName || member.fullName || "").trim();
+  const derivedFromEntry = deriveOwnerNameFromEntryName(entry?.name);
+  const handle = String(member.displayName || "").trim();
+
+  if (explicitName) {
+    return explicitName;
+  }
+
+  if (derivedFromEntry && (!handle || looksLikeGeneratedHandle(handle))) {
+    return derivedFromEntry;
+  }
+
+  return handle || derivedFromEntry || "Unknown member";
+}
+
+function getVisibleMemberName(entry) {
+  const preferredName = String(entry?.memberName || "").trim();
+  const entryName = String(entry?.name || "").trim();
+
+  if (!preferredName) {
+    return "";
+  }
+
+  return preferredName.toLowerCase() === entryName.toLowerCase() ? "" : preferredName;
 }
 
 function formatTimelineMatchupLabel(proposition) {
@@ -2641,6 +2751,7 @@ function renderStandings(model, standings) {
       <tbody>
         ${standings
           .map(entry => {
+            const visibleMemberName = getVisibleMemberName(entry);
             const primaryMetric =
               state.metric === METRIC_POINTS
                 ? `<strong>${entry.snapshot.points}</strong><span>${entry.snapshot.accuracyPct.toFixed(1)}% accurate</span>`
@@ -2652,7 +2763,7 @@ function renderStandings(model, standings) {
                 <td>
                   <div class="standings-table__entry">
                     <span class="standings-table__entry-name">${escapeHtml(entry.name)}</span>
-                    <span class="standings-table__entry-subtitle">${escapeHtml(entry.memberName)}</span>
+                    ${visibleMemberName ? `<span class="standings-table__entry-subtitle">${escapeHtml(visibleMemberName)}</span>` : ""}
                     ${entry.rank === 1 ? '<span class="badge badge--leader">Leader</span>' : ""}
                   </div>
                 </td>
@@ -2724,10 +2835,16 @@ function renderEspnOutlook(model) {
           ? rankedAlive
               .slice(0, 8)
               .map(entry => {
+                const visibleMemberName = getVisibleMemberName(entry);
                 const behind = Math.max(leadScore - entry.currentPoints, 0);
                 const forecastText = forecastAvailable
                   ? `${entry.forecast?.toWinPct?.toFixed(1) || "0.0"}% to win`
                   : `${entry.currentPossibleMax} max / ${behind} back`;
+                const metaParts = [
+                  visibleMemberName,
+                  `${entry.currentPoints} points now`,
+                  `${entry.currentWins}-${entry.currentLosses} record`
+                ].filter(Boolean);
 
                 return `
                   <div class="stack-list__item">
@@ -2737,9 +2854,7 @@ function renderEspnOutlook(model) {
                       <span class="stack-list__value">${escapeHtml(forecastText)}</span>
                     </div>
                     <p class="stack-list__meta">
-                      ${escapeHtml(entry.memberName)} • ${escapeHtml(entry.currentPoints)} points now • ${escapeHtml(
-                        `${entry.currentWins}-${entry.currentLosses}`
-                      )} record
+                      ${escapeHtml(metaParts.join(" • "))}
                     </p>
                   </div>
                 `;
@@ -2801,7 +2916,14 @@ function renderProjectionOutlook(model) {
       ${projectedEntries
         .slice(0, 8)
         .map(entry => {
+          const visibleMemberName = getVisibleMemberName(entry.modelEntry);
           const projectedBack = entry.projectedBack <= 0.05 ? "Projected leader" : `${entry.projectedBack.toFixed(1)} back`;
+          const metaParts = [
+            visibleMemberName,
+            formatExpectedRemainingPoints(entry.expectedRemainingPoints),
+            projectedBack,
+            `${entry.matchedPicks} future picks weighted`
+          ].filter(Boolean);
 
           return `
             <div class="stack-list__item">
@@ -2811,9 +2933,7 @@ function renderProjectionOutlook(model) {
                 <span class="stack-list__value">${escapeHtml(formatProjectedPoints(entry.projectedPoints))}</span>
               </div>
               <p class="stack-list__meta">
-                ${escapeHtml(entry.modelEntry.memberName)} • ${escapeHtml(
-                  formatExpectedRemainingPoints(entry.expectedRemainingPoints)
-                )} • ${escapeHtml(projectedBack)} • ${escapeHtml(entry.matchedPicks)} future picks weighted
+                ${escapeHtml(metaParts.join(" • "))}
               </p>
             </div>
           `;
@@ -2938,13 +3058,14 @@ function renderPicksTable(model) {
       <tbody>
         ${currentStandings
           .map(entry => {
+            const visibleMemberName = getVisibleMemberName(entry);
             return `
               <tr>
                 <td class="picks-table__sticky picks-table__sticky--rank standings-table__rank">${escapeHtml(entry.rank)}</td>
                 <td class="picks-table__sticky picks-table__sticky--entry">
                   <div class="picks-table__entry">
                     <span class="picks-table__entry-name">${escapeHtml(entry.name)}</span>
-                    <span class="picks-table__entry-subtitle">${escapeHtml(entry.memberName)}</span>
+                    ${visibleMemberName ? `<span class="picks-table__entry-subtitle">${escapeHtml(visibleMemberName)}</span>` : ""}
                   </div>
                 </td>
                 ${propositions
