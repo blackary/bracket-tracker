@@ -619,6 +619,8 @@ select {
 
 .projection-compare-sheet__card {
   width: min(100%, 70rem);
+  overflow: hidden;
+  grid-template-rows: auto auto minmax(0, 1fr);
   max-height: min(88vh, 60rem);
 }
 
@@ -637,6 +639,7 @@ select {
 }
 
 .projection-compare-sheet__body {
+  min-height: 0;
   overflow: auto;
   padding-right: 0.1rem;
 }

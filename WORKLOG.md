@@ -3,6 +3,7 @@
 ## 2026-03-20
 
 - Added a projection-comparison sheet so clicking two projected finishes opens a detailed game-by-game expected-points breakdown, including current-score edge, future upside, shared vs split picks, and the biggest swing game.
+- Fixed the projection-comparison sheet's height handling so the modal body scrolls inside the card instead of overflowing past the bottom edge on large desktop viewports.
 - Added cache-busting query versions to the static JS and CSS asset URLs so live deploys do not mix a new HTML shell with a stale cached app bundle, and skipped ESPN forecast requests for groups that are not forecast-eligible to avoid noisy `400` errors.
 - Added persistent chart focus so clicking a line, callout, or legend name keeps one bracket highlighted until clicked again, with the rest of the field dimmed for easier tracking.
 - Removed the duplicated top summary-card row so the chart-side live snapshot strip is the single place for scrub-aware snapshot stats.
