@@ -2,8 +2,8 @@ name: Refresh EvanMiya Odds
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 */6 * 3-4 *"
+  # schedule:
+  #  - cron: "17 */6 * 3-4 *"
 
 permissions:
   contents: write
